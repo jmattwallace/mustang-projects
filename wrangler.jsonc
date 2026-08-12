@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "mustang-projects",
+  "account_id": "31f36cc96dc7a1ecc117594e46f688aa1",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-12",
   "compatibility_flags": ["nodejs_compat"],
