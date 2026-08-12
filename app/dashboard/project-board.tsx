@@ -272,7 +272,24 @@ export function Dashboard({
             color = group?.color || "#1746a4",
             overall = p.project_notes.find((x) => !x.stage_id)?.body;
           return (
-            <div key={p.id} className="drop-wrap">
+            <div
+              key={p.id}
+              className="drop-wrap"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDrop(`${e.clientY < rect.top + rect.height / 2 ? "before" : "after"}:${p.id}`);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const rect = e.currentTarget.getBoundingClientRect();
+                void reorder(
+                  { id: p.id, after: e.clientY >= rect.top + rect.height / 2 },
+                  e.dataTransfer.getData("text/plain"),
+                );
+              }}
+            >
               {drop === `before:${p.id}` && drag !== p.id && (
                 <div className="drop-indicator">Drop above this project</div>
               )}
@@ -284,20 +301,6 @@ export function Dashboard({
                   dragRef.current = p.id;
                   e.dataTransfer.effectAllowed = "move";
                   e.dataTransfer.setData("text/plain", p.id);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setDrop(`${e.clientY < rect.top + rect.height / 2 ? "before" : "after"}:${p.id}`);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  void reorder(
-                    { id: p.id, after: e.clientY >= rect.top + rect.height / 2 },
-                    e.dataTransfer.getData("text/plain"),
-                  );
                 }}
                 onDragEnd={() => {
                   setDrag(null);
@@ -568,6 +571,12 @@ function ProjectEdit({
     ),
     [saving, setSaving] = useState(false),
     total = stages.reduce((x, s) => x + s.allocation, 0);
+  const calculatedCompletion = Math.round(
+    stages.reduce((sum, stage) => sum + stage.allocation * stage.progress, 0) /
+      100,
+  );
+  const completionMismatch =
+    project.mode === "staged" && completion !== calculatedCompletion;
   async function save() {
     if (project.mode === "staged" && total !== 100)
       return alert("Stage targets must total 100%.");
@@ -728,6 +737,22 @@ function ProjectEdit({
                 </label>
               </div>
             ))}
+            {completionMismatch && (
+              <div className="completion-choice">
+                <b>Overall completion is {completion}%.</b>
+                <span>
+                  The weighted stage calculation is {calculatedCompletion}%.
+                </span>
+                <button
+                  className="ghost"
+                  type="button"
+                  onClick={() => setCompletion(calculatedCompletion)}
+                >
+                  Use {calculatedCompletion}% from stages
+                </button>
+                <span className="muted">Or leave the manual overall percentage as entered.</span>
+              </div>
+            )}
           </>
         ) : (
           <button className="ghost" onClick={enable}>
@@ -743,13 +768,31 @@ function ProjectEdit({
 }
 function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
   const [name, setName] = useState(""),
-    [color, setColor] = useState("#2763d9");
+    [color, setColor] = useState("#2763d9"),
+    [editing, setEditing] = useState<G | null>(null),
+    [saving, setSaving] = useState(false);
   async function add() {
     const r = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, color }),
     });
+    r.ok ? location.reload() : alert(await errorFrom(r));
+  }
+  async function saveEdit() {
+    if (!editing) return;
+    setSaving(true);
+    const r = await fetch("/api/groups", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editing),
+    });
+    r.ok ? location.reload() : alert(await errorFrom(r));
+    setSaving(false);
+  }
+  async function remove(group: G) {
+    if (!confirm(`Delete the group “${group.name}”? It will be removed from its projects.`)) return;
+    const r = await fetch(`/api/groups?id=${encodeURIComponent(group.id)}`, { method: "DELETE" });
     r.ok ? location.reload() : alert(await errorFrom(r));
   }
   return (
@@ -762,24 +805,43 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
           ×
         </button>
         <p className="eyebrow">Your private groups</p>
-        <div className="group-catalog">
+        <div className="group-catalog group-editor-list">
           {groups.map((g) => (
-            <span key={g.id} style={{ background: g.color }}>
-              {g.name}
-            </span>
+            <div className="group-editor-row" key={g.id}>
+              <span style={{ background: g.color }}>{g.name}</span>
+              <button className="ghost" onClick={() => setEditing({ ...g })}>Edit</button>
+              <button className="ghost danger" onClick={() => void remove(g)}>Delete</button>
+            </div>
           ))}
         </div>
+        {editing && (
+          <div className="group-edit-form">
+            <h3>Edit group</h3>
+            <label>
+              Group name
+              <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+            </label>
+            <label>
+              Group color
+              <div className="color-control">
+                <input className="color-input" type="color" value={editing.color} onChange={(e) => setEditing({ ...editing, color: e.target.value })} />
+                <span className="color-swatch" style={{ background: editing.color }}>{editing.color}</span>
+              </div>
+            </label>
+            <button className="primary" disabled={saving} onClick={() => void saveEdit()}>Save group</button>
+            <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
+          </div>
+        )}
         <label>
           New group name
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
           Group color
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-          />
+          <div className="color-control">
+            <input className="color-input" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+            <span className="color-swatch" style={{ background: color }}>{color}</span>
+          </div>
         </label>
         <button className="primary" onClick={add}>
           Create group
@@ -814,11 +876,19 @@ function AdminReports({
       (includeArchived || project.status === "active"),
   );
   const reportTitle =
-    reportType === "financial"
+    reportType === "all"
+      ? "All project information"
+      : reportType === "financial"
       ? "Financial summary"
       : reportType === "dates"
         ? "Project notes timeline"
         : "Travel notes";
+  const notesFor = (travelOnly = false) =>
+    reportProjects.flatMap((p) =>
+      p.project_notes
+        .filter((n) => !travelOnly || /travel/i.test(n.body))
+        .map((n) => ({ project: p.title, body: n.body })),
+    );
   async function invite() {
     const r = await fetch("/api/admin", {
       method: "POST",
@@ -882,6 +952,7 @@ function AdminReports({
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value)}
               >
+                <option value="all">All project information</option>
                 <option value="financial">Financial summary</option>
                 <option value="dates">Dates timeline</option>
                 <option value="travel">Travel notes</option>
@@ -909,11 +980,12 @@ function AdminReports({
                 <p className="eyebrow">Mustang Projects Review</p>
                 <h2>{reportTitle}</h2>
                 <p className="muted">{reportProjects.length} projects · generated {new Date().toLocaleDateString()}</p>
-                {reportType === "financial" ? (
+                {(reportType === "all" || reportType === "financial") && <>
+                  {reportType === "all" && <h3>Financial summary</h3>}
                   <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th></tr></thead><tbody>{reportProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td></tr>)}</tbody></table>
-                ) : (
-                  <ul>{reportProjects.flatMap((p) => p.project_notes.filter((n) => reportType === "dates" || /travel/i.test(n.body)).map((n) => <li key={n.id}><b>{p.title}:</b> {n.body}</li>))}</ul>
-                )}
+                </>}
+                {(reportType === "all" || reportType === "dates") && <section className="report-notes"><h3>{reportType === "all" ? "Notes timeline" : "Project notes"}</h3><ul>{notesFor().map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
+                {(reportType === "all" || reportType === "travel") && <section className="report-notes"><h3>Travel notes</h3><ul>{notesFor(true).map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
               </section>
             )}
           </>
