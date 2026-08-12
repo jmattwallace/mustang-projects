@@ -18,7 +18,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run cf:build
-      - name: Build and deploy to Cloudflare
+      - name: Create or update the Cloudflare Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      # A Worker must exist before Wrangler can store its runtime values.
+      - name: Add runtime configuration
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
