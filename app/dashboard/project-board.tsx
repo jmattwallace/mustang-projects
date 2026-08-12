@@ -72,6 +72,7 @@ export function Dashboard({
     [drag, setDrag] = useState<string | null>(null),
     [drop, setDrop] = useState<string | null>(null),
     dragRef = useRef<string | null>(null),
+    [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set()),
     [sort, setSort] = useState("manual"),
     [adminOpen, setAdminOpen] = useState(false),
     [adminTab, setAdminTab] = useState<"reports" | "admin">("reports"),
@@ -306,9 +307,19 @@ export function Dashboard({
                   setDrag(null);
                   setDrop(null);
                 }}
+                onContextMenu={(e) => {
+                  if (p.mode !== "staged") return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCollapsedStages((current) => {
+                    const next = new Set(current);
+                    next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+                    return next;
+                  });
+                }}
                 onClick={() => !drag && setSelected(p)}
               >
-                {p.mode === "staged" ? (
+                {p.mode === "staged" && !collapsedStages.has(p.id) ? (
                   <div className="stages">
                     {p.project_stages
                       .sort(
@@ -394,13 +405,32 @@ export function Dashboard({
                           ),
                       )}
                     </div>
-                    <span className="finance-pill">
-                      {cash(Number(p.projected_gross))} Gross
-                    </span>
-                    <span className="finance-pill">
-                      {cash(Number(p.projected_net))} Net
-                    </span>
+                    {Number(p.projected_gross) > 0 && (
+                      <span className="finance-pill">
+                        {cash(Number(p.projected_gross))} Gross
+                      </span>
+                    )}
+                    {Number(p.projected_net) > 0 && (
+                      <span className="finance-pill">
+                        {cash(Number(p.projected_net))} Net
+                      </span>
+                    )}
                   </div>
+                  {p.mode === "staged" && collapsedStages.has(p.id) && (
+                    <button
+                      className="open-stages"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCollapsedStages((current) => {
+                          const next = new Set(current);
+                          next.delete(p.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      Open stages
+                    </button>
+                  )}
                   <strong>{p.completion}%</strong>
                 </div>
               </article>
