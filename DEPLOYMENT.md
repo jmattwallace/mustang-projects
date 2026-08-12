@@ -15,7 +15,7 @@ Use the Cloudflare account signed in as **j.matt.wallace@gmail.com**. Keep the G
    - Deploy command: `npx wrangler deploy`
    - Non-production branch deploy command: `npx wrangler versions upload`
    - Node version: `22`
-4. In **Settings → Variables and Secrets**, add these values for both Production and Preview:
+4. In **Settings → Variables and Secrets**, add these values for both Production and Preview. Add them in both places: **Build Variables and secrets** (so Next.js can build the browser bundle) and **Runtime Variables and Secrets** (so the Worker can authenticate requests):
    - `NEXT_PUBLIC_SUPABASE_URL` — the existing Supabase Project URL (ending in `.supabase.co`, not `/rest/v1/`)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the existing Supabase publishable/anon key
 5. Run the first deployment. Cloudflare will provide a `*.workers.dev` address.
