@@ -1,6 +1,7 @@
 name: Deploy Mustang Projects
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
