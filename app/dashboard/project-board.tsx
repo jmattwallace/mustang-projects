@@ -111,17 +111,25 @@ export function Dashboard({
     b.ok ? location.reload() : alert(b.error);
     setBusy(false);
   }
-  async function reorder(target: string | null) {
-    const draggedId = dragRef.current || drag;
+  async function reorder(
+    target: { id: string; after: boolean } | null,
+    draggedFromEvent?: string,
+  ) {
+    const draggedId = draggedFromEvent || dragRef.current || drag;
     if (!draggedId) return;
-    const a = projects.findIndex((x) => x.id === draggedId),
-      b =
-        target === null
-          ? projects.length
-          : projects.findIndex((x) => x.id === target),
-      next = [...projects],
-      [m] = next.splice(a, 1);
-    next.splice(a < b ? b - 1 : b, 0, m);
+    const next = [...projects];
+    const sourceIndex = next.findIndex((x) => x.id === draggedId);
+    if (sourceIndex < 0) return;
+    const [moved] = next.splice(sourceIndex, 1);
+    const targetIndex = target
+      ? next.findIndex((x) => x.id === target.id)
+      : next.length;
+    const insertAt = target
+      ? target.after
+        ? targetIndex + 1
+        : targetIndex
+      : next.length;
+    next.splice(Math.max(0, insertAt), 0, moved);
     setProjects(next);
     setSort("customized");
     setDrag(null);
@@ -265,8 +273,8 @@ export function Dashboard({
             overall = p.project_notes.find((x) => !x.stage_id)?.body;
           return (
             <div key={p.id} className="drop-wrap">
-              {drop === p.id && drag !== p.id && (
-                <div className="drop-indicator">Drop here</div>
+              {drop === `before:${p.id}` && drag !== p.id && (
+                <div className="drop-indicator">Drop above this project</div>
               )}
               <article
                 className={`project ${drag === p.id ? "dragging" : ""}`}
@@ -275,12 +283,22 @@ export function Dashboard({
                   setDrag(p.id);
                   dragRef.current = p.id;
                   e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", p.id);
                 }}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setDrop(p.id);
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDrop(`${e.clientY < rect.top + rect.height / 2 ? "before" : "after"}:${p.id}`);
                 }}
-                onDrop={() => reorder(p.id)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  void reorder(
+                    { id: p.id, after: e.clientY >= rect.top + rect.height / 2 },
+                    e.dataTransfer.getData("text/plain"),
+                  );
+                }}
                 onDragEnd={() => {
                   setDrag(null);
                   setDrop(null);
@@ -383,6 +401,9 @@ export function Dashboard({
                   <strong>{p.completion}%</strong>
                 </div>
               </article>
+              {drop === `after:${p.id}` && drag !== p.id && (
+                <div className="drop-indicator">Drop below this project</div>
+              )}
             </div>
           );
         })}
@@ -393,7 +414,10 @@ export function Dashboard({
               e.preventDefault();
               setDrop("__end__");
             }}
-            onDrop={() => reorder(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              void reorder(null, e.dataTransfer.getData("text/plain"));
+            }}
           >
             Drop at end
           </div>
@@ -778,12 +802,23 @@ function AdminReports({
   projects: P[];
   close: () => void;
 }) {
-  const [tab, setTab] = useState<"reports" | "admin">(initialTab),
-    [email, setEmail] = useState(""),
+  const [email, setEmail] = useState(""),
     [inviteRole, setInviteRole] = useState("standard"),
     [viewAs, setViewAs] = useState(""),
     [reportType, setReportType] = useState("financial"),
-    [includeArchived, setIncludeArchived] = useState(false);
+    [includeArchived, setIncludeArchived] = useState(false),
+    [reportReady, setReportReady] = useState(false);
+  const reportProjects = projects.filter(
+    (project) =>
+      project.status !== "cancelled" &&
+      (includeArchived || project.status === "active"),
+  );
+  const reportTitle =
+    reportType === "financial"
+      ? "Financial summary"
+      : reportType === "dates"
+        ? "Project notes timeline"
+        : "Travel notes";
   async function invite() {
     const r = await fetch("/api/admin", {
       method: "POST",
@@ -797,7 +832,7 @@ function AdminReports({
   function download() {
     const rows = [
       ["Project", "Completion", "Projected Gross", "Projected Net"],
-      ...projects.map((p) => [
+      ...reportProjects.map((p) => [
         p.title,
         `${p.completion}%`,
         String(p.projected_gross),
@@ -818,6 +853,16 @@ function AdminReports({
     a.click();
     URL.revokeObjectURL(a.href);
   }
+  function printReport() {
+    const report = document.getElementById("report-preview");
+    if (!report) return;
+    const printWindow = window.open("", "mustang-project-report", "width=900,height=700");
+    if (!printWindow) return alert("Please allow pop-ups to print this report.");
+    printWindow.document.write(`<!doctype html><html><head><title>${reportTitle}</title><style>body{font-family:Arial;padding:32px;color:#172033}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #ccd}th{text-align:left}h1{margin-bottom:4px}.muted{color:#667}</style></head><body>${report.outerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
   return (
     <div className="modal-backdrop" onMouseDown={close}>
       <section
@@ -827,16 +872,8 @@ function AdminReports({
         <button className="close" onClick={close}>
           ×
         </button>
-        <p className="eyebrow">
-          {role === "admin" ? "Administration & reporting" : "Reporting"}
-        </p>
-        <div className="tabs">
-          <button onClick={() => setTab("reports")}>Reports</button>
-          {role === "admin" && (
-            <button onClick={() => setTab("admin")}>Admin</button>
-          )}
-        </div>
-        {tab === "reports" ? (
+        <p className="eyebrow">{initialTab === "admin" ? "Administration" : "Reports"}</p>
+        {initialTab === "reports" ? (
           <>
             <h2>Build a report</h2>
             <label>
@@ -858,27 +895,27 @@ function AdminReports({
               />{" "}
               Include completed / archived
             </label>
-            {role === "admin" && (
-              <label>
-                Scope
-                <select>
-                  <option>My projects</option>
-                  <option>All users</option>
-                  <option>Specific user</option>
-                </select>
-              </label>
-            )}
-            <p className="hint">
-              Parameters are selected before the report is created. Current data
-              export includes project financials; date and travel sections will
-              populate as those notes are entered.
-            </p>
-            <button className="primary" onClick={download}>
+            <button className="primary" onClick={() => setReportReady(true)}>
+              Build report
+            </button>
+            <button className="ghost" onClick={download}>
               Download CSV
             </button>
-            <button className="ghost" onClick={() => print()}>
+            <button className="ghost" disabled={!reportReady} onClick={printReport}>
               Print report
             </button>
+            {reportReady && (
+              <section className="report-preview" id="report-preview">
+                <p className="eyebrow">Mustang Projects Review</p>
+                <h2>{reportTitle}</h2>
+                <p className="muted">{reportProjects.length} projects · generated {new Date().toLocaleDateString()}</p>
+                {reportType === "financial" ? (
+                  <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th></tr></thead><tbody>{reportProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td></tr>)}</tbody></table>
+                ) : (
+                  <ul>{reportProjects.flatMap((p) => p.project_notes.filter((n) => reportType === "dates" || /travel/i.test(n.body)).map((n) => <li key={n.id}><b>{p.title}:</b> {n.body}</li>))}</ul>
+                )}
+              </section>
+            )}
           </>
         ) : (
           <>
