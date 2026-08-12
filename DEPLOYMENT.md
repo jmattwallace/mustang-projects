@@ -6,7 +6,22 @@ This application is a full Next.js application with sign-in, server routes, and 
 
 Use the Cloudflare account signed in as **j.matt.wallace@gmail.com**. Keep the GitHub repository private and give no other person write access to its `main` branch. Only a change pushed to `main` will publish a new production version.
 
-## One-time Cloudflare setup
+## Recommended: deploy through GitHub Actions
+
+This method does not use Cloudflare's GitHub App or its repository-selection screen. GitHub runs the deployment every time `main` changes.
+
+1. In Cloudflare, go to **My Profile → API Tokens → Create Token**.
+2. Choose **Edit Cloudflare Workers**, name it `Mustang Projects GitHub deployment`, and restrict it to this Cloudflare account. Create it and copy the token once.
+3. In GitHub, open `jmattwallace/mustang-projects` → **Settings → Secrets and variables → Actions → New repository secret**. Add:
+   - `CLOUDFLARE_API_TOKEN` — the token just created
+   - `CLOUDFLARE_ACCOUNT_ID` — `31f36cc96dc7a1ecc117594e46f688aa1`
+   - `NEXT_PUBLIC_SUPABASE_URL` — the existing Supabase Project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the existing Supabase publishable key
+4. Open the repository's **Actions** tab and run or re-run **Deploy Mustang Projects**. It creates the Worker called `mustang-projects` and gives it a `workers.dev` URL.
+
+The deployment workflow is in `.github/workflows/deploy-cloudflare.yml`. No Cloudflare token or Supabase value is stored in the repository itself.
+
+## Alternative: Cloudflare's Git integration
 
 1. Sign in to [Cloudflare](https://dash.cloudflare.com/) as `j.matt.wallace@gmail.com`.
 2. Open **Workers & Pages** and create a new **Worker** from the `jmattwallace/mustang-projects` GitHub repository. Choose `main` as the production branch.
