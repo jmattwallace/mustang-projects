@@ -40,6 +40,10 @@ const shade = (h: string) => {
   const n = parseInt(h.slice(1), 16);
   return `rgb(${Math.max(0, (n >> 16) - 55)},${Math.max(0, ((n >> 8) & 255) - 55)},${Math.max(0, (n & 255) - 55)})`;
 };
+async function errorFrom(response: Response) {
+  const body = (await response.json()) as { error?: string };
+  return body.error || "Something went wrong.";
+}
 
 export function Dashboard({
   initialProjects,
@@ -103,7 +107,7 @@ export function Dashboard({
   async function newProject() {
     setBusy(true);
     const r = await fetch("/api/projects", { method: "POST" }),
-      b = await r.json();
+      b = (await r.json()) as { ok?: boolean; error?: string };
     b.ok ? location.reload() : alert(b.error);
     setBusy(false);
   }
@@ -129,7 +133,7 @@ export function Dashboard({
       body: JSON.stringify({ ids: next.map((x) => x.id) }),
     });
     if (!r.ok) {
-      alert((await r.json()).error);
+      alert(await errorFrom(r));
       location.reload();
     }
   }
@@ -148,7 +152,7 @@ export function Dashboard({
         positions: Object.fromEntries(projects.map((p, i) => [p.id, i])),
       }),
     });
-    if (!r.ok) alert((await r.json()).error);
+    if (!r.ok) alert(await errorFrom(r));
     else location.reload();
   }
   function loadArrangement(a: A) {
@@ -450,7 +454,7 @@ function AccountEdit({
       body: JSON.stringify({ displayName: value }),
     });
     if (response.ok) location.reload();
-    else alert((await response.json()).error || "Could not save your name.");
+    else alert((await errorFrom(response)) || "Could not save your name.");
     setSaving(false);
   }
   return (
@@ -493,7 +497,7 @@ function NoteEdit({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stageId: target.s?.id ?? null, body }),
     });
-    r.ok ? location.reload() : alert((await r.json()).error);
+    r.ok ? location.reload() : alert(await errorFrom(r));
     setSaving(false);
   }
   return (
@@ -570,12 +574,12 @@ function ProjectEdit({
       });
     r.ok && g.ok
       ? location.reload()
-      : alert(!r.ok ? (await r.json()).error : (await g.json()).error);
+      : alert(!r.ok ? await errorFrom(r) : await errorFrom(g));
     setSaving(false);
   }
   async function enable() {
     const r = await fetch(`/api/projects/${project.id}`, { method: "POST" });
-    r.ok ? location.reload() : alert((await r.json()).error);
+    r.ok ? location.reload() : alert(await errorFrom(r));
   }
   return (
     <div className="modal-backdrop" onMouseDown={close}>
@@ -722,7 +726,7 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, color }),
     });
-    r.ok ? location.reload() : alert((await r.json()).error);
+    r.ok ? location.reload() : alert(await errorFrom(r));
   }
   return (
     <div className="modal-backdrop" onMouseDown={close}>
@@ -788,7 +792,7 @@ function AdminReports({
     });
     r.ok
       ? (setEmail(""), alert("Invitation added."))
-      : alert((await r.json()).error);
+      : alert(await errorFrom(r));
   }
   function download() {
     const rows = [

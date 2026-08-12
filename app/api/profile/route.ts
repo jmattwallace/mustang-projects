@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
 
-  const { displayName } = await request.json();
+  const { displayName } = (await request.json()) as { displayName?: string };
   const name = String(displayName || "").trim().slice(0, 100);
   if (!name)
     return NextResponse.json({ error: "A display name is required." }, { status: 400 });

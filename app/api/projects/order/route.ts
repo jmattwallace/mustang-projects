@@ -5,7 +5,7 @@ export async function PUT(request: NextRequest) {
   const response = NextResponse.json({ ok: false }, { status: 500 });
   const db = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { getAll: () => request.cookies.getAll(), setAll: (items: {name:string;value:string;options?:any}[]) => items.forEach(i => response.cookies.set(i.name, i.value, i.options)) } });
   const { data: { user } } = await db.auth.getUser(); if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
-  const { ids } = await request.json();
+  const { ids } = (await request.json()) as { ids?: string[] };
   if (!Array.isArray(ids)) return NextResponse.json({ error: "Invalid project order." }, { status: 400 });
   const { data: owned } = await db.from("projects").select("id").eq("owner_id", user.id).in("id", ids);
   if (owned?.length !== ids.length) return NextResponse.json({ error: "You can only reorder your own projects." }, { status: 403 });
