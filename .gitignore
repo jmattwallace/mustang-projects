@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.open-next/
+.wrangler/
+.env.local
+.env*.local
+.dev.vars*
+client_secret_*.json
+*.tsbuildinfo

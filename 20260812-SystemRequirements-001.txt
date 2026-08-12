@@ -1,0 +1,30 @@
+INITIAL PROJECT OVERVIEW and REQUIREMENTS (Document 01)
+
+Develop a web-based, multi-user, project management overview status board that primarily conveys the status of projects so that they can be visualized against other projects.
+
+Please reference the screen shot example for ideas, but please make recommendations to improve the visual readability and beauty of the layout. This is only an example to start the process.
+
+PINK LETTER COMMENTS:
+A) the system should allow for different people to have accounts to track their projects and display only projects they have created and manage. Each account would have a name, email, password, and the ability to define their specific projects, project groups, and any other data they customize.
+
+B) the screen should have some shortcuts to sorting the project bars by the options lists, there should be 3 customized sortings that can be saved based on what is currently on the screen (after manual rearrangement has happened - per "C" - that can be recalled quickly through this interface)
+
+C) the tabs to the left of each project should allow the user to click-drag a project bar to reorder where they are currently sit on the screen in relationship to the other projects. a RIGHT-CLICK on this tab should allow to collapse the bar into a short simple version.
+
+D) the completion amount of project is noted by full color of the project bar -VS- a muted version of the projected next steps.
+
+E) a color bar that extends across the project (below) is color coded to a Project grouping.... project groupings are TYPES of similar projects.... examples: IDRN, Farm, Mustang Int'l, Mocados. In the user's customization, they should be able to manage the number of GROUPS, the grouping name, and the color assigned to that group.
+
+F) Notes under Preproduction (and Production, Post-Production, and Confirmation) should be clickable... opening a pop-up window where different types of notes can be entered/edited... including DATES, COSTS/EXPENSES/Travel Notes/ Anything.
+
+In addition to the LETTER references, here are additional requirements:
+
+- need to be able to create a report with organized lists across all projects: a) chronological notes/projects date references (including due dates) , b) expenses - highest to lowest, c) travel notes
+
+- This system should be accessible from anywhere on the internet.
+
+- User accounts should be designated as standard or admin. 
+
+- The Admin account should have the ability to interact with the system "assuming the identity of another existing user" for troubleshooting and clean up. 
+
+- Admin accounts can run the same report but for ALL data in the system
