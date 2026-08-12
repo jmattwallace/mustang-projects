@@ -14,7 +14,6 @@ This method does not use Cloudflare's GitHub App or its repository-selection scr
 2. Choose **Edit Cloudflare Workers**, name it `Mustang Projects GitHub deployment`, and restrict it to this Cloudflare account. Create it and copy the token once.
 3. In GitHub, open `jmattwallace/mustang-projects` → **Settings → Secrets and variables → Actions → New repository secret**. Add:
    - `CLOUDFLARE_API_TOKEN` — the token just created
-   - `CLOUDFLARE_ACCOUNT_ID` — `31f36cc96dc7a1ecc117594e46f688aa1`
    - `NEXT_PUBLIC_SUPABASE_URL` — the existing Supabase Project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the existing Supabase publishable key
 4. Open the repository's **Actions** tab and run or re-run **Deploy Mustang Projects**. It creates the Worker called `mustang-projects` and gives it a `workers.dev` URL.
