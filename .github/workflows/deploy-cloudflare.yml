@@ -18,6 +18,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run cf:build
+        env:
+          # NEXT_PUBLIC values are compiled into the browser app during this step.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Create or update the Cloudflare Worker
         uses: cloudflare/wrangler-action@v3
         with:
