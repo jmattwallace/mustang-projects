@@ -122,6 +122,8 @@ export function Dashboard({
     [savedViewMenu, setSavedViewMenu] = useState<A | null>(null),
     [pickThree, setPickThree] = useState<A | null>(null);
   const readOnly = Boolean(viewAs);
+  const regularArrangements = arrangements.filter((arrangement) => arrangement.positions.__view_kind__ !== "pick3" && arrangement.name !== "Pick 3 projects");
+  const pickThreeView = arrangements.find((arrangement) => arrangement.positions.__view_kind__ === "pick3" || arrangement.name === "Pick 3 projects");
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
     suppressClick = useRef(false);
   const visible = useMemo(
@@ -195,11 +197,7 @@ export function Dashboard({
     }
   }
   async function saveArrangement(slot: number) {
-    const existing = arrangements[slot];
-    if (slot === 2) {
-      setPickThree(existing || ({ id: "", name: "Pick 3 projects", positions: {} } as A));
-      return;
-    }
+    const existing = regularArrangements[slot];
     const name =
       existing?.name ||
       prompt("Name this custom arrangement:", `Custom view ${slot + 1}`);
@@ -216,8 +214,8 @@ export function Dashboard({
     if (!r.ok) alert(await errorFrom(r));
     else location.reload();
   }
-  function loadArrangement(a: A, slot: number) {
-    if (slot === 2) {
+  function loadArrangement(a: A) {
+    if (a.positions.__view_kind__ === "pick3" || a.name === "Pick 3 projects") {
       const picks = new Set(Object.keys(a.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", "")));
       if (picks.size !== 3) { setPickThree(a); return; }
       setHiddenProjects(new Set(projects.filter((project) => !picks.has(project.id)).map((project) => project.id)));
@@ -283,18 +281,18 @@ export function Dashboard({
             </select>
           </label>
           <div className="saved-views">
-            {[0, 1, 2].map((i) =>
-              arrangements[i] ? (
+            {[0, 1].map((i) =>
+              regularArrangements[i] ? (
                 <button
                   key={i}
                   className="view-button"
-                  onClick={() => loadArrangement(arrangements[i], i)}
+                  onClick={() => loadArrangement(regularArrangements[i])}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    if (!readOnly) i === 2 ? setPickThree(arrangements[i]) : setSavedViewMenu(arrangements[i]);
+                    if (!readOnly) setSavedViewMenu(regularArrangements[i]);
                   }}
                 >
-                  {arrangements[i].name}
+                  {regularArrangements[i].name}
                 </button>
               ) : (
                 <button
@@ -302,10 +300,13 @@ export function Dashboard({
                   className="view-button"
                   onClick={() => saveArrangement(i)}
                 >
-                  {i === 2 ? "Pick 3 projects" : `+ Save view ${i + 1}`}
+                  {`+ Save view ${i + 1}`}
                 </button>
               ),
             )}
+            <button className="view-button" onClick={() => pickThreeView ? loadArrangement(pickThreeView) : setPickThree({ id: "", name: "Pick 3 projects", positions: {} })} onContextMenu={(event) => { event.preventDefault(); if (!readOnly) setPickThree(pickThreeView || ({ id: "", name: "Pick 3 projects", positions: {} } as A)); }}>
+              Pick 3
+            </button>
           </div>
         </div>
         <div className="actions second-row">
