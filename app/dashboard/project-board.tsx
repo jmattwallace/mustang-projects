@@ -46,7 +46,12 @@ const order = ["Pre-Production", "Production", "Post-production", "Confirm"],
     }).format(n || 0);
 const shade = (h: string) => {
   const n = parseInt(h.slice(1), 16);
-  return `rgb(${Math.max(0, (n >> 16) - 55)},${Math.max(0, ((n >> 8) & 255) - 55)},${Math.max(0, (n & 255) - 55)})`;
+  const r = n >> 16,
+    g = (n >> 8) & 255,
+    b = n & 255,
+    gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Keep only a subtle (30%) group-color tint, then darken it strongly.
+  return `rgb(${Math.round((r * 0.3 + gray * 0.7) * 0.42)},${Math.round((g * 0.3 + gray * 0.7) * 0.42)},${Math.round((b * 0.3 + gray * 0.7) * 0.42)})`;
 };
 async function errorFrom(response: Response) {
   const body = (await response.json()) as { error?: string };
