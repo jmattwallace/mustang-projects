@@ -404,17 +404,37 @@ select {
   margin: 0 0 10px;
 }
 .project-groups-column .group-picker {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   align-items: flex-start;
   gap: 10px;
+  margin: 0;
+}
+.modal .project-groups-column .group-picker label {
+  display: grid;
+  grid-template-columns: 16px max-content;
+  align-items: center;
+  justify-content: start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+}
+.modal .project-groups-column .group-picker input {
+  display: block;
+  width: auto;
   margin: 0;
 }
 .report-check {
   display: inline-flex !important;
   width: fit-content;
+  align-items: center;
   gap: 6px;
   margin: 4px 0 12px;
+}
+.modal label.report-check input {
+  display: inline-block;
+  width: auto;
+  margin: 0;
 }
 @media (max-width: 640px) {
   .project-details-grid { grid-template-columns: 1fr; gap: 18px; }
