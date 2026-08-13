@@ -57,6 +57,12 @@ async function errorFrom(response: Response) {
   const body = (await response.json()) as { error?: string };
   return body.error || "Something went wrong.";
 }
+function savedPositions(projects: P[], collapsed: Set<string>) {
+  return {
+    ...Object.fromEntries(projects.map((project, index) => [project.id, index])),
+    ...Object.fromEntries([...collapsed].map((id) => [`__collapsed__${id}`, 1])),
+  };
+}
 
 export function Dashboard({
   initialProjects,
@@ -180,7 +186,7 @@ export function Dashboard({
       body: JSON.stringify({
         id: existing?.id,
         name,
-        positions: Object.fromEntries(projects.map((p, i) => [p.id, i])),
+        positions: savedPositions(projects, collapsedStages),
       }),
     });
     if (!r.ok) alert(await errorFrom(r));
@@ -191,6 +197,13 @@ export function Dashboard({
     setProjects(
       [...projects].sort(
         (x, y) => (a.positions[x.id] ?? 999999) - (a.positions[y.id] ?? 999999),
+      ),
+    );
+    setCollapsedStages(
+      new Set(
+        Object.keys(a.positions)
+          .filter((key) => key.startsWith("__collapsed__"))
+          .map((key) => key.replace("__collapsed__", "")),
       ),
     );
   }
@@ -207,9 +220,6 @@ export function Dashboard({
             <p className="eyebrow">Mustang Projects Review</p>
             <h1>{name.split(" ")[0]}'s projects</h1>
             {viewAs && <p className="viewing-as">Viewing as {viewAs.name} ({viewAs.email})</p>}
-            <button className="ghost title-signout" onClick={() => (location.href = viewAs ? "/dashboard" : "/auth/signout")}>
-              {viewAs ? "Close View As" : "Sign out"}
-            </button>
           </div>
           <input
             className="header-search"
@@ -263,6 +273,9 @@ export function Dashboard({
           </div>
         </div>
         <div className="actions second-row">
+          <button className="ghost title-signout" onClick={() => (location.href = viewAs ? "/dashboard" : "/auth/signout")}>
+            {viewAs ? "Close View As" : "Sign out"}
+          </button>
           <button className="ghost" onClick={toggleAllStages}>
             {projects.some((project) => project.mode === "staged") && projects.filter((project) => project.mode === "staged").every((project) => collapsedStages.has(project.id)) ? "Expand all" : "Collapse all"}
           </button>
@@ -477,19 +490,19 @@ export function Dashboard({
                       </span>
                     )}
                   </div>
-                  {p.mode === "staged" && collapsedStages.has(p.id) && (
+                  {p.mode === "staged" && (
                     <button
                       className="open-stages"
                       onClick={(e) => {
                         e.stopPropagation();
                         setCollapsedStages((current) => {
                           const next = new Set(current);
-                          next.delete(p.id);
+                          next.has(p.id) ? next.delete(p.id) : next.add(p.id);
                           return next;
                         });
                       }}
                     >
-                      Open stages
+                      {collapsedStages.has(p.id) ? "Open stages" : "Close stages"}
                     </button>
                   )}
                   <strong>{p.completion}%</strong>
@@ -533,7 +546,7 @@ export function Dashboard({
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
-      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} close={() => setSavedViewMenu(null)} />}
+      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} close={() => setSavedViewMenu(null)} />}
       {accountOpen && (
         <AccountEdit
           currentName={name}
@@ -676,12 +689,12 @@ function FeedbackForm({ close }: { close: () => void }) {
     </div>
   );
 }
-function SavedViewMenu({ view, projects, close }: { view: A; projects: P[]; close: () => void }) {
+function SavedViewMenu({ view, projects, collapsedStages, close }: { view: A; projects: P[]; collapsedStages: Set<string>; close: () => void }) {
   async function update() {
     const response = await fetch("/api/arrangements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: view.id, name: view.name, positions: Object.fromEntries(projects.map((project, index) => [project.id, index])) }),
+      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages) }),
     });
     response.ok ? location.reload() : alert(await errorFrom(response));
   }
@@ -1020,7 +1033,7 @@ function AdminReports({
   const [email, setEmail] = useState(""),
     [inviteRole, setInviteRole] = useState("standard"),
     [viewAs, setViewAs] = useState(""),
-    [reportType, setReportType] = useState("financial"),
+    [reportType, setReportType] = useState("all"),
     [includeArchived, setIncludeArchived] = useState(false),
     [reportReady, setReportReady] = useState(false),
     [showCompletedFeedback, setShowCompletedFeedback] = useState(false),
