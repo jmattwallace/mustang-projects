@@ -590,6 +590,23 @@ select {
   max-width: 42%;
   color: #fff;
 }
+.note-hover-preview {
+  position: fixed;
+  z-index: 50;
+  width: min(410px, calc(100vw - 32px));
+  max-height: min(260px, calc(100vh - 32px));
+  overflow: auto;
+  padding: 15px 17px;
+  border: 1px solid #657188;
+  border-radius: 9px;
+  background: #111722;
+  box-shadow: 0 16px 34px #000a;
+  color: #f4f6fb;
+  font-size: 1rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
 .note-editor {
   width: 100%;
   min-height: 160px;
@@ -654,6 +671,7 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 .report-preview table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.9rem; }
 .report-preview th, .report-preview td { padding:9px 7px; border-bottom:1px solid #d8dee8; text-align:left; }
 .report-preview th { color:#526276; font-size:.74rem; letter-spacing:.04em; text-transform:uppercase; }
+.report-preview tfoot th { border-top:2px solid #8b97a8; color:#172033; font-size:.82rem; }
 .report-preview ul { margin:14px 0 0; padding-left:20px; }
 .report-preview li { margin:8px 0; }
 .report-notes { margin-top:22px; }

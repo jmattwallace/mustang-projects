@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 
 type S = {
   id: string;
@@ -120,12 +120,26 @@ export function Dashboard({
     [accountOpen, setAccountOpen] = useState(false),
     [feedbackOpen, setFeedbackOpen] = useState(false),
     [savedViewMenu, setSavedViewMenu] = useState<A | null>(null),
-    [pickThree, setPickThree] = useState<A | null>(null);
+    [pickThree, setPickThree] = useState<A | null>(null),
+    [notePreview, setNotePreview] = useState<{ body: string; left: number; top: number } | null>(null);
   const readOnly = Boolean(viewAs);
   const regularArrangements = arrangements.filter((arrangement) => arrangement.positions.__view_kind__ !== "pick3" && arrangement.name !== "Pick 3 projects");
   const pickThreeView = arrangements.find((arrangement) => arrangement.positions.__view_kind__ === "pick3" || arrangement.name === "Pick 3 projects");
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
-    suppressClick = useRef(false);
+    suppressClick = useRef(false),
+    notePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function startNotePreview(event: MouseEvent<HTMLButtonElement>, body?: string) {
+    if (!body) return;
+    if (notePreviewTimer.current) clearTimeout(notePreviewTimer.current);
+    const left = Math.max(16, Math.min(event.clientX, window.innerWidth - 440));
+    const top = Math.max(16, Math.min(event.clientY + 14, window.innerHeight - 220));
+    notePreviewTimer.current = setTimeout(() => setNotePreview({ body, left, top }), 600);
+  }
+  function stopNotePreview() {
+    if (notePreviewTimer.current) clearTimeout(notePreviewTimer.current);
+    notePreviewTimer.current = null;
+    setNotePreview(null);
+  }
   const visible = useMemo(
     () =>
       projects
@@ -182,7 +196,7 @@ export function Dashboard({
       : next.length;
     next.splice(Math.max(0, insertAt), 0, moved);
     setProjects(next);
-    setSort("customized");
+    setSort("manual");
     setDrag(null);
     dragRef.current = null;
     setDrop(null);
@@ -219,7 +233,7 @@ export function Dashboard({
       const picks = new Set(Object.keys(a.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", "")));
       if (picks.size !== 3) { setPickThree(a); return; }
       setHiddenProjects(new Set(projects.filter((project) => !picks.has(project.id)).map((project) => project.id)));
-      setQuery(""); setInactive(true); setSort("customized");
+      setQuery(""); setInactive(true); setSort("manual");
     } else {
     const savedSort = typeof a.positions.__view_sort__ === "string" ? a.positions.__view_sort__ : "manual";
     setSort(savedSort);
@@ -258,7 +272,7 @@ export function Dashboard({
     setHiddenProjects(new Set(projects.filter((project) => !picks.includes(project.id)).map((project) => project.id)));
     setQuery("");
     setInactive(true);
-    setSort("customized");
+    setSort("manual");
     setPickThree(null);
   }
   return (
@@ -288,7 +302,6 @@ export function Dashboard({
             Sort by{" "}
             <select value={sort} onChange={(e) => applySort(e.target.value)}>
               <option value="manual">Custom order</option>
-              <option value="customized">Customized</option>
               <option value="completion">Completion %</option>
               <option value="gross">Projected gross</option>
               <option value="groups">Groups</option>
@@ -470,6 +483,8 @@ export function Dashboard({
                             </small>
                             <button
                               className="note-preview"
+                              onMouseEnter={(event) => startNotePreview(event, text)}
+                              onMouseLeave={stopNotePreview}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setNote({ p, s });
@@ -491,6 +506,8 @@ export function Dashboard({
                     />
                     <button
                       className="note-preview overall"
+                      onMouseEnter={(event) => startNotePreview(event, overall)}
+                      onMouseLeave={stopNotePreview}
                       onClick={(e) => {
                         e.stopPropagation();
                         setNote({ p });
@@ -593,6 +610,11 @@ export function Dashboard({
         />
       )}{" "}
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
+      {notePreview && (
+        <div className="note-hover-preview" style={{ left: notePreview.left, top: notePreview.top }}>
+          {notePreview.body}
+        </div>
+      )}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
       {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} hiddenProjects={hiddenProjects} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
@@ -745,7 +767,9 @@ function SavedViewMenu({ view, projects, collapsedStages, hiddenProjects, query,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }) }),
     });
-    response.ok ? location.reload() : alert(await errorFrom(response));
+    // The current board already reflects the exact state just saved. Keeping it
+    // in place avoids briefly reopening every staged project after an update.
+    response.ok ? close() : alert(await errorFrom(response));
   }
   async function clear() {
     if (!confirm(`Clear the saved view “${view.name}”?`)) return;
@@ -1107,6 +1131,17 @@ function AdminReports({
       project.status !== "cancelled" &&
       (includeArchived || project.status === "active"),
   );
+  const financialProjects = reportProjects.filter(
+    (project) => Number(project.projected_gross) > 0 || Number(project.projected_net) > 0,
+  );
+  const totalGross = financialProjects.reduce(
+    (total, project) => total + Number(project.projected_gross || 0),
+    0,
+  );
+  const totalNet = financialProjects.reduce(
+    (total, project) => total + Number(project.projected_net || 0),
+    0,
+  );
   const reportTitle =
     reportType === "all"
       ? "All project information"
@@ -1142,12 +1177,13 @@ function AdminReports({
   function download() {
     const rows = [
       ["Project", "Completion", "Projected Gross", "Projected Net"],
-      ...reportProjects.map((p) => [
+      ...financialProjects.map((p) => [
         p.title,
         `${p.completion}%`,
         String(p.projected_gross),
         String(p.projected_net),
       ]),
+      ["Totals", "", String(totalGross), String(totalNet)],
     ];
     const blob = new Blob(
       [
@@ -1222,7 +1258,7 @@ function AdminReports({
                 <p className="muted">{reportProjects.length} projects · generated {new Date().toLocaleDateString()}</p>
                 {(reportType === "all" || reportType === "financial") && <>
                   {reportType === "all" && <h3>Financial summary</h3>}
-                  <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th></tr></thead><tbody>{reportProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td></tr>)}</tbody></table>
+                  <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th></tr></thead><tbody>{financialProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th></th><th>{cash(totalGross)}</th><th>{cash(totalNet)}</th></tr></tfoot></table>
                 </>}
                 {(reportType === "all" || reportType === "dates") && <section className="report-notes"><h3>{reportType === "all" ? "Notes timeline" : "Project notes"}</h3><ul>{notesFor().map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
                 {(reportType === "all" || reportType === "travel") && <section className="report-notes"><h3>Travel notes</h3><ul>{notesFor(true).map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
