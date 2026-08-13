@@ -13,6 +13,14 @@ type G = { id: string; name: string; color: string };
 type N = { id: string; stage_id: string | null; body: string };
 type A = { id: string; name: string; positions: Record<string, number> };
 type Person = { id: string; email: string; display_name: string | null };
+type Feedback = {
+  id: string;
+  subject: string;
+  message: string;
+  status: "open" | "completed" | "deleted";
+  created_at: string;
+  profiles: { email: string; display_name: string | null }[];
+};
 type P = {
   id: string;
   title: string;
@@ -53,6 +61,7 @@ export function Dashboard({
   email,
   role,
   people,
+  feedback,
 }: {
   initialProjects: P[];
   groups: G[];
@@ -61,6 +70,7 @@ export function Dashboard({
   email: string;
   role: "standard" | "admin";
   people: Person[];
+  feedback: Feedback[];
 }) {
   const [projects, setProjects] = useState(initialProjects),
     [query, setQuery] = useState(""),
@@ -76,7 +86,10 @@ export function Dashboard({
     [sort, setSort] = useState("manual"),
     [adminOpen, setAdminOpen] = useState(false),
     [adminTab, setAdminTab] = useState<"reports" | "admin">("reports"),
-    [accountOpen, setAccountOpen] = useState(false);
+    [accountOpen, setAccountOpen] = useState(false),
+    [feedbackOpen, setFeedbackOpen] = useState(false);
+  const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
+    suppressClick = useRef(false);
   const visible = useMemo(
     () =>
       projects
@@ -234,6 +247,9 @@ export function Dashboard({
           <button className="ghost" onClick={() => setManage(true)}>
             Manage groups
           </button>
+          <button className="ghost" onClick={() => setFeedbackOpen(true)}>
+            Feedback
+          </button>
           <button
             className="ghost"
             onClick={() => {
@@ -317,7 +333,32 @@ export function Dashboard({
                     return next;
                   });
                 }}
-                onClick={() => !drag && setSelected(p)}
+                onTouchStart={() => {
+                  if (p.mode !== "staged") return;
+                  longPress.current = setTimeout(() => {
+                    suppressClick.current = true;
+                    setCollapsedStages((current) => {
+                      const next = new Set(current);
+                      next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+                      return next;
+                    });
+                  }, 600);
+                }}
+                onTouchEnd={() => {
+                  if (longPress.current) clearTimeout(longPress.current);
+                  longPress.current = null;
+                }}
+                onTouchMove={() => {
+                  if (longPress.current) clearTimeout(longPress.current);
+                  longPress.current = null;
+                }}
+                onClick={() => {
+                  if (suppressClick.current) {
+                    suppressClick.current = false;
+                    return;
+                  }
+                  if (!drag) setSelected(p);
+                }}
               >
                 {p.mode === "staged" && !collapsedStages.has(p.id) ? (
                   <div className="stages">
@@ -471,6 +512,7 @@ export function Dashboard({
       )}{" "}
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
+      {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
       {accountOpen && (
         <AccountEdit
           currentName={name}
@@ -484,6 +526,7 @@ export function Dashboard({
           role={role}
           people={people}
           projects={projects}
+          feedback={feedback}
           close={() => setAdminOpen(false)}
         />
       )}
@@ -578,6 +621,36 @@ function NoteEdit({
         <button className="primary" disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save note"}
         </button>
+      </section>
+    </div>
+  );
+}
+function FeedbackForm({ close }: { close: () => void }) {
+  const [subject, setSubject] = useState(""),
+    [message, setMessage] = useState(""),
+    [sending, setSending] = useState(false);
+  async function send() {
+    setSending(true);
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, message }),
+    });
+    if (response.ok) {
+      alert("Thank you — your feedback has been sent.");
+      close();
+    } else alert(await errorFrom(response));
+    setSending(false);
+  }
+  return (
+    <div className="modal-backdrop" onMouseDown={close}>
+      <section className="modal compact" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="close" onClick={close}>×</button>
+        <p className="eyebrow">Feedback</p>
+        <h2>Send feedback</h2>
+        <label>Subject (optional)<input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Short summary" /></label>
+        <label>Message<textarea className="note-editor" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="What would make Mustang Projects better?" /></label>
+        <button className="primary" disabled={sending} onClick={() => void send()}>{sending ? "Sending…" : "Send feedback"}</button>
       </section>
     </div>
   );
@@ -854,7 +927,7 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
             <label>
               Group color
               <div className="color-control">
-                <input className="color-input" type="color" value={editing.color} onChange={(e) => setEditing({ ...editing, color: e.target.value })} />
+                <input className="color-input" type="color" value={editing.color} onChange={(e) => { setEditing({ ...editing, color: e.target.value }); e.currentTarget.blur(); }} />
                 <span className="color-swatch" style={{ background: editing.color }}>{editing.color}</span>
               </div>
             </label>
@@ -869,7 +942,7 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
         <label>
           Group color
           <div className="color-control">
-            <input className="color-input" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+            <input className="color-input" type="color" value={color} onChange={(e) => { setColor(e.target.value); e.currentTarget.blur(); }} />
             <span className="color-swatch" style={{ background: color }}>{color}</span>
           </div>
         </label>
@@ -886,12 +959,14 @@ function AdminReports({
   role,
   people,
   projects,
+  feedback,
   close,
 }: {
   initialTab: "reports" | "admin";
   role: "standard" | "admin";
   people: Person[];
   projects: P[];
+  feedback: Feedback[];
   close: () => void;
 }) {
   const [email, setEmail] = useState(""),
@@ -899,7 +974,9 @@ function AdminReports({
     [viewAs, setViewAs] = useState(""),
     [reportType, setReportType] = useState("financial"),
     [includeArchived, setIncludeArchived] = useState(false),
-    [reportReady, setReportReady] = useState(false);
+    [reportReady, setReportReady] = useState(false),
+    [showCompletedFeedback, setShowCompletedFeedback] = useState(false),
+    [showDeletedFeedback, setShowDeletedFeedback] = useState(false);
   const reportProjects = projects.filter(
     (project) =>
       project.status !== "cancelled" &&
@@ -928,6 +1005,14 @@ function AdminReports({
     r.ok
       ? (setEmail(""), alert("Invitation added."))
       : alert(await errorFrom(r));
+  }
+  async function updateFeedback(id: string, status: Feedback["status"]) {
+    const response = await fetch("/api/feedback", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    response.ok ? location.reload() : alert(await errorFrom(response));
   }
   function download() {
     const rows = [
@@ -1064,6 +1149,24 @@ function AdminReports({
             >
               View as selected user
             </button>
+            <section className="feedback-admin">
+              <h3>Feedback queue</h3>
+              <label className="check"><input type="checkbox" checked={showCompletedFeedback} onChange={(event) => setShowCompletedFeedback(event.target.checked)} /> Show completed</label>
+              <label className="check"><input type="checkbox" checked={showDeletedFeedback} onChange={(event) => setShowDeletedFeedback(event.target.checked)} /> Show deleted</label>
+              {feedback
+                .filter((item) => item.status === "open" || (item.status === "completed" && showCompletedFeedback) || (item.status === "deleted" && showDeletedFeedback))
+                .map((item) => (
+                  <article className="feedback-item" key={item.id}>
+                    <b>{item.subject || "Feedback"}</b>
+                    <p>{item.message}</p>
+                    <small>{item.profiles[0]?.display_name || item.profiles[0]?.email || "Unknown user"} · {new Date(item.created_at).toLocaleString()} · {item.status}</small>
+                    {item.status !== "completed" && <button className="ghost" onClick={() => void updateFeedback(item.id, "completed")}>Complete</button>}
+                    {item.status !== "deleted" && <button className="ghost danger" onClick={() => void updateFeedback(item.id, "deleted")}>Delete</button>}
+                    {item.status !== "open" && <button className="ghost" onClick={() => void updateFeedback(item.id, "open")}>Reopen</button>}
+                  </article>
+                ))}
+              {!feedback.some((item) => item.status === "open" || (item.status === "completed" && showCompletedFeedback) || (item.status === "deleted" && showDeletedFeedback)) && <p className="muted">No feedback matches these filters.</p>}
+            </section>
           </>
         )}
       </section>

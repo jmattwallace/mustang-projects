@@ -8,7 +8,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params; const { stageId, body } = (await request.json()) as { stageId?: string | null; body?: string };
   const { error: ownerError } = await db.from("projects").select("id").eq("id", id).eq("owner_id", user.id).single();
   if (ownerError) return NextResponse.json({ error: "Only the owner can edit notes." }, { status: 403 });
-  const { data: existing, error: findError } = await db.from("project_notes").select("id").eq("project_id", id).eq("stage_id", stageId ?? null).maybeSingle();
+  const noteQuery = db.from("project_notes").select("id").eq("project_id", id);
+  const { data: existing, error: findError } = stageId
+    ? await noteQuery.eq("stage_id", stageId).maybeSingle()
+    : await noteQuery.is("stage_id", null).maybeSingle();
   if (findError) return NextResponse.json({ error: findError.message }, { status: 400 });
   const { error } = existing ? await db.from("project_notes").update({ body }).eq("id", existing.id) : await db.from("project_notes").insert({ project_id:id, stage_id:stageId ?? null, note_type:"General", body });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

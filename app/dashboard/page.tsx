@@ -14,5 +14,8 @@ export default async function DashboardPage() {
   const { data: groups } = await supabase.from("project_groups").select("id,name,color").eq("creator_id", user.id).order("name");
   const { data: arrangements } = await supabase.from("saved_arrangements").select("id,name,positions").eq("owner_id", user.id).order("created_at");
   const { data: people } = profile.role === "admin" ? await supabase.from("profiles").select("id,email,display_name").eq("is_active",true).order("email") : { data: [] };
-  return <Dashboard initialProjects={projects ?? []} groups={groups ?? []} arrangements={arrangements ?? []} name={profile.display_name || profile.email} email={profile.email} role={profile.role} people={people ?? []} />;
+  const { data: feedback } = profile.role === "admin"
+    ? await supabase.from("feedback").select("id,subject,message,status,created_at,profiles!feedback_submitted_by_fkey(email,display_name)").order("created_at", { ascending: false })
+    : { data: [] };
+  return <Dashboard initialProjects={projects ?? []} groups={groups ?? []} arrangements={arrangements ?? []} name={profile.display_name || profile.email} email={profile.email} role={profile.role} people={people ?? []} feedback={feedback ?? []} />;
 }
