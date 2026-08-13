@@ -11,7 +11,7 @@ type S = {
 };
 type G = { id: string; name: string; color: string };
 type N = { id: string; stage_id: string | null; body: string };
-type A = { id: string; name: string; positions: Record<string, number> };
+type A = { id: string; name: string; positions: Record<string, unknown> };
 type Person = { id: string; email: string; display_name: string | null };
 type Feedback = {
   id: string;
@@ -57,11 +57,26 @@ async function errorFrom(response: Response) {
   const body = (await response.json()) as { error?: string };
   return body.error || "Something went wrong.";
 }
-function savedPositions(projects: P[], collapsed: Set<string>) {
+function savedPositions(
+  projects: P[],
+  collapsed: Set<string>,
+  state: { query: string; inactive: boolean; sort: string },
+) {
   return {
     ...Object.fromEntries(projects.map((project, index) => [project.id, index])),
-    ...Object.fromEntries([...collapsed].map((id) => [`__collapsed__${id}`, 1])),
+    ...Object.fromEntries(
+      projects
+        .filter((project) => project.mode === "staged")
+        .map((project) => [`__stage_state__${project.id}`, collapsed.has(project.id)]),
+    ),
+    __view_query__: state.query,
+    __view_inactive__: state.inactive,
+    __view_sort__: state.sort,
   };
+}
+function savedPosition(positions: Record<string, unknown>, id: string) {
+  const value = positions[id];
+  return typeof value === "number" ? value : 999999;
 }
 
 export function Dashboard({
@@ -186,24 +201,29 @@ export function Dashboard({
       body: JSON.stringify({
         id: existing?.id,
         name,
-        positions: savedPositions(projects, collapsedStages),
+        positions: savedPositions(projects, collapsedStages, { query, inactive, sort }),
       }),
     });
     if (!r.ok) alert(await errorFrom(r));
     else location.reload();
   }
   function loadArrangement(a: A) {
-    setSort("manual");
+    const savedSort = typeof a.positions.__view_sort__ === "string" ? a.positions.__view_sort__ : "manual";
+    setSort(savedSort);
+    setQuery(typeof a.positions.__view_query__ === "string" ? a.positions.__view_query__ : "");
+    setInactive(a.positions.__view_inactive__ === true);
     setProjects(
       [...projects].sort(
-        (x, y) => (a.positions[x.id] ?? 999999) - (a.positions[y.id] ?? 999999),
+        (x, y) =>
+          savedPosition(a.positions, x.id) - savedPosition(a.positions, y.id),
       ),
     );
     setCollapsedStages(
       new Set(
-        Object.keys(a.positions)
-          .filter((key) => key.startsWith("__collapsed__"))
-          .map((key) => key.replace("__collapsed__", "")),
+        projects
+          .filter((project) => project.mode === "staged")
+          .filter((project) => a.positions[`__stage_state__${project.id}`] !== false)
+          .map((project) => project.id),
       ),
     );
   }
@@ -546,7 +566,7 @@ export function Dashboard({
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
-      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} close={() => setSavedViewMenu(null)} />}
+      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
       {accountOpen && (
         <AccountEdit
           currentName={name}
@@ -689,12 +709,12 @@ function FeedbackForm({ close }: { close: () => void }) {
     </div>
   );
 }
-function SavedViewMenu({ view, projects, collapsedStages, close }: { view: A; projects: P[]; collapsedStages: Set<string>; close: () => void }) {
+function SavedViewMenu({ view, projects, collapsedStages, query, inactive, sort, close }: { view: A; projects: P[]; collapsedStages: Set<string>; query: string; inactive: boolean; sort: string; close: () => void }) {
   async function update() {
     const response = await fetch("/api/arrangements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages) }),
+      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages, { query, inactive, sort }) }),
     });
     response.ok ? location.reload() : alert(await errorFrom(response));
   }
