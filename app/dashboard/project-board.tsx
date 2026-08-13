@@ -60,6 +60,7 @@ async function errorFrom(response: Response) {
 function savedPositions(
   projects: P[],
   collapsed: Set<string>,
+  hidden: Set<string>,
   state: { query: string; inactive: boolean; sort: string },
 ) {
   return {
@@ -69,6 +70,7 @@ function savedPositions(
         .filter((project) => project.mode === "staged")
         .map((project) => [`__stage_state__${project.id}`, collapsed.has(project.id)]),
     ),
+    ...Object.fromEntries([...hidden].map((id) => [`__hidden__${id}`, true])),
     __view_query__: state.query,
     __view_inactive__: state.inactive,
     __view_sort__: state.sort,
@@ -111,12 +113,14 @@ export function Dashboard({
     [drop, setDrop] = useState<string | null>(null),
     dragRef = useRef<string | null>(null),
     [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set()),
+    [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set()),
     [sort, setSort] = useState("manual"),
     [adminOpen, setAdminOpen] = useState(false),
     [adminTab, setAdminTab] = useState<"reports" | "admin">("reports"),
     [accountOpen, setAccountOpen] = useState(false),
     [feedbackOpen, setFeedbackOpen] = useState(false),
-    [savedViewMenu, setSavedViewMenu] = useState<A | null>(null);
+    [savedViewMenu, setSavedViewMenu] = useState<A | null>(null),
+    [pickThree, setPickThree] = useState<A | null>(null);
   const readOnly = Boolean(viewAs);
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
     suppressClick = useRef(false);
@@ -125,6 +129,7 @@ export function Dashboard({
       projects
         .filter(
           (p) =>
+            !hiddenProjects.has(p.id) &&
             (inactive || p.status === "active") &&
             `${p.title} ${p.project_group_memberships.map((x) => x.project_groups?.name).join(" ")} ${p.project_notes.map((x) => x.body).join(" ")}`
               .toLowerCase()
@@ -146,7 +151,7 @@ export function Dashboard({
                     )
                   : 0,
         ),
-    [projects, query, inactive, sort],
+    [projects, query, inactive, sort, hiddenProjects],
   );
   async function newProject() {
     setBusy(true);
@@ -191,6 +196,10 @@ export function Dashboard({
   }
   async function saveArrangement(slot: number) {
     const existing = arrangements[slot];
+    if (slot === 2) {
+      setPickThree(existing || ({ id: "", name: "Pick 3 projects", positions: {} } as A));
+      return;
+    }
     const name =
       existing?.name ||
       prompt("Name this custom arrangement:", `Custom view ${slot + 1}`);
@@ -201,13 +210,19 @@ export function Dashboard({
       body: JSON.stringify({
         id: existing?.id,
         name,
-        positions: savedPositions(projects, collapsedStages, { query, inactive, sort }),
+        positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }),
       }),
     });
     if (!r.ok) alert(await errorFrom(r));
     else location.reload();
   }
-  function loadArrangement(a: A) {
+  function loadArrangement(a: A, slot: number) {
+    if (slot === 2) {
+      const picks = new Set(Object.keys(a.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", "")));
+      if (picks.size !== 3) { setPickThree(a); return; }
+      setHiddenProjects(new Set(projects.filter((project) => !picks.has(project.id)).map((project) => project.id)));
+      setQuery(""); setInactive(true); setSort("customized");
+    } else {
     const savedSort = typeof a.positions.__view_sort__ === "string" ? a.positions.__view_sort__ : "manual";
     setSort(savedSort);
     setQuery(typeof a.positions.__view_query__ === "string" ? a.positions.__view_query__ : "");
@@ -226,6 +241,8 @@ export function Dashboard({
           .map((project) => project.id),
       ),
     );
+    setHiddenProjects(new Set(Object.keys(a.positions).filter((key) => key.startsWith("__hidden__")).map((key) => key.replace("__hidden__", ""))));
+    }
   }
   function toggleAllStages() {
     const stagedIds = projects.filter((project) => project.mode === "staged").map((project) => project.id);
@@ -247,22 +264,21 @@ export function Dashboard({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <label className="check header-check">
+            <label className="check header-check">
             <input
               type="checkbox"
               checked={inactive}
               onChange={(e) => setInactive(e.target.checked)}
             />{" "}
-            Include completed / archived
+            Include completed
           </label>
           <label className="sort-control">
             Sort by{" "}
             <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="manual">Manual order</option>
+              <option value="manual">Custom order</option>
               <option value="customized">Customized</option>
               <option value="completion">Completion %</option>
               <option value="gross">Projected gross</option>
-              <option value="net">Projected net</option>
               <option value="groups">Groups</option>
             </select>
           </label>
@@ -272,10 +288,10 @@ export function Dashboard({
                 <button
                   key={i}
                   className="view-button"
-                  onClick={() => loadArrangement(arrangements[i])}
+                  onClick={() => loadArrangement(arrangements[i], i)}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    if (!readOnly) setSavedViewMenu(arrangements[i]);
+                    if (!readOnly) i === 2 ? setPickThree(arrangements[i]) : setSavedViewMenu(arrangements[i]);
                   }}
                 >
                   {arrangements[i].name}
@@ -286,21 +302,22 @@ export function Dashboard({
                   className="view-button"
                   onClick={() => saveArrangement(i)}
                 >
-                  + Save view {i + 1}
+                  {i === 2 ? "Pick 3 projects" : `+ Save view ${i + 1}`}
                 </button>
               ),
             )}
           </div>
         </div>
         <div className="actions second-row">
+          {hiddenProjects.size > 0 && <button className="ghost" onClick={() => setHiddenProjects(new Set())}>Un-Hide All</button>}
           <button className="ghost title-signout" onClick={() => (location.href = viewAs ? "/dashboard" : "/auth/signout")}>
             {viewAs ? "Close View As" : "Sign out"}
           </button>
-          <button className="ghost" onClick={toggleAllStages}>
-            {projects.some((project) => project.mode === "staged") && projects.filter((project) => project.mode === "staged").every((project) => collapsedStages.has(project.id)) ? "Expand all" : "Collapse all"}
-          </button>
           <button className="ghost" onClick={() => setAccountOpen(true)}>
             Account
+          </button>
+          <button className="ghost" onClick={toggleAllStages}>
+            {projects.some((project) => project.mode === "staged") && projects.filter((project) => project.mode === "staged").every((project) => collapsedStages.has(project.id)) ? "Expand all" : "Collapse all"}
           </button>
           <button className="ghost" onClick={() => setManage(true)}>
             Manage groups
@@ -377,14 +394,11 @@ export function Dashboard({
                   setDrop(null);
                 }}
                 onContextMenu={(e) => {
-                  if (p.mode !== "staged") return;
                   e.preventDefault();
                   e.stopPropagation();
-                  setCollapsedStages((current) => {
-                    const next = new Set(current);
-                    next.has(p.id) ? next.delete(p.id) : next.add(p.id);
-                    return next;
-                  });
+                  if (!readOnly && confirm(`Temporarily hide “${p.title}” from this board?`)) {
+                    setHiddenProjects((current) => new Set([...current, p.id]));
+                  }
                 }}
                 onTouchStart={() => {
                   if (p.mode !== "staged") return;
@@ -566,7 +580,8 @@ export function Dashboard({
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
-      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
+      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} hiddenProjects={hiddenProjects} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
+      {pickThree && <PickThree view={pickThree} projects={projects} close={() => setPickThree(null)} />}
       {accountOpen && (
         <AccountEdit
           currentName={name}
@@ -691,7 +706,6 @@ function FeedbackForm({ close }: { close: () => void }) {
       body: JSON.stringify({ subject, message }),
     });
     if (response.ok) {
-      alert("Thank you — your feedback has been sent.");
       close();
     } else alert(await errorFrom(response));
     setSending(false);
@@ -709,12 +723,12 @@ function FeedbackForm({ close }: { close: () => void }) {
     </div>
   );
 }
-function SavedViewMenu({ view, projects, collapsedStages, query, inactive, sort, close }: { view: A; projects: P[]; collapsedStages: Set<string>; query: string; inactive: boolean; sort: string; close: () => void }) {
+function SavedViewMenu({ view, projects, collapsedStages, hiddenProjects, query, inactive, sort, close }: { view: A; projects: P[]; collapsedStages: Set<string>; hiddenProjects: Set<string>; query: string; inactive: boolean; sort: string; close: () => void }) {
   async function update() {
     const response = await fetch("/api/arrangements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages, { query, inactive, sort }) }),
+      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }) }),
     });
     response.ok ? location.reload() : alert(await errorFrom(response));
   }
@@ -735,6 +749,21 @@ function SavedViewMenu({ view, projects, collapsedStages, query, inactive, sort,
       </section>
     </div>
   );
+}
+function PickThree({ view, projects, close }: { view: A; projects: P[]; close: () => void }) {
+  const existing = Object.keys(view.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", ""));
+  const [picked, setPicked] = useState<string[]>(existing);
+  async function save() {
+    if (picked.length !== 3) return alert("Please choose exactly three projects.");
+    const positions: Record<string, unknown> = {
+      ...Object.fromEntries(projects.map((project, index) => [project.id, index])),
+      ...Object.fromEntries(picked.map((id) => [`__pick__${id}`, true])),
+      __view_kind__: "pick3",
+    };
+    const response = await fetch("/api/arrangements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: view.id || undefined, name: "Pick 3 projects", positions }) });
+    response.ok ? location.reload() : alert(await errorFrom(response));
+  }
+  return <div className="modal-backdrop" onMouseDown={close}><section className="modal compact" onMouseDown={(event) => event.stopPropagation()}><button className="close" onClick={close}>×</button><p className="eyebrow">Pick 3 projects</p><h2>Show only three projects</h2><p className="muted">Choose exactly three projects for this saved view.</p><div className="pick-three-list">{projects.map((project) => <label key={project.id}><input type="checkbox" checked={picked.includes(project.id)} onChange={(event) => setPicked((current) => event.target.checked ? [...current, project.id] : current.filter((id) => id !== project.id))} disabled={!picked.includes(project.id) && picked.length === 3} /> {project.title}</label>)}</div><button className="primary" onClick={() => void save()}>Save Pick 3 view</button></section></div>;
 }
 function ProjectEdit({
   project,
