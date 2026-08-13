@@ -879,54 +879,58 @@ function ProjectEdit({
           Project title
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
-        <label>
-          Overall completion
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={completion}
-            onChange={(e) => setCompletion(Number(e.target.value))}
-          />
-        </label>
-        <div className="finance-fields">
-          <label>
-            Projected gross
-            <input
-              type="number"
-              min="0"
-              value={gross}
-              onChange={(e) => setGross(Number(e.target.value))}
-            />
-          </label>
-          <label>
-            Projected net
-            <input
-              type="number"
-              min="0"
-              value={net}
-              onChange={(e) => setNet(Number(e.target.value))}
-            />
-          </label>
-        </div>
-        <h3>Groups</h3>
-        <div className="group-picker">
-          {groups.map((g) => (
-            <label key={g.id}>
+        <div className="project-details-grid">
+          <div className="project-financials">
+            <label>
+              Overall completion
               <input
-                type="checkbox"
-                checked={chosen.includes(g.id)}
-                onChange={(e) =>
-                  setChosen(
-                    e.target.checked
-                      ? [...chosen, g.id]
-                      : chosen.filter((x) => x !== g.id),
-                  )
-                }
+                type="number"
+                min="0"
+                max="100"
+                value={completion}
+                onChange={(e) => setCompletion(Number(e.target.value))}
               />
-              <span style={{ background: g.color }}>{g.name}</span>
             </label>
-          ))}
+            <label>
+              Projected gross
+              <input
+                type="number"
+                min="0"
+                value={gross}
+                onChange={(e) => setGross(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Projected net
+              <input
+                type="number"
+                min="0"
+                value={net}
+                onChange={(e) => setNet(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          <div className="project-groups-column">
+            <h3>Groups</h3>
+            <div className="group-picker">
+              {groups.map((g) => (
+                <label key={g.id}>
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(g.id)}
+                    onChange={(e) =>
+                      setChosen(
+                        e.target.checked
+                          ? [...chosen, g.id]
+                          : chosen.filter((x) => x !== g.id),
+                      )
+                    }
+                  />
+                  <span style={{ background: g.color }}>{g.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
         {project.mode === "staged" ? (
           <>
@@ -1234,12 +1238,12 @@ function AdminReports({
                 <option value="travel">Travel notes</option>
               </select>
             </label>
-            <label>
+            <label className="check report-check">
               <input
                 type="checkbox"
                 checked={includeArchived}
                 onChange={(e) => setIncludeArchived(e.target.checked)}
-              />{" "}
+              />
               Include completed / archived
             </label>
             <button className="primary" onClick={() => setReportReady(true)}>

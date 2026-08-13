@@ -389,6 +389,37 @@ select {
   white-space: nowrap;
 }
 .group-picker input, .check input { margin: 0; flex: 0 0 auto; }
+.project-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, .9fr);
+  gap: 26px;
+  align-items: start;
+  margin: 16px 0 20px;
+}
+.project-financials {
+  display: grid;
+  gap: 12px;
+}
+.project-groups-column h3 {
+  margin: 0 0 10px;
+}
+.project-groups-column .group-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+}
+.report-check {
+  display: inline-flex !important;
+  width: fit-content;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+@media (max-width: 640px) {
+  .project-details-grid { grid-template-columns: 1fr; gap: 18px; }
+  .project-groups-column .group-picker { flex-direction: row; flex-wrap: wrap; }
+}
 .group-picker span,
 .group-catalog span {
   border-radius: 999px;
