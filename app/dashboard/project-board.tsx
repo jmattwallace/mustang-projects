@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
-import mockupReference from "../../MockupScreen01.jpg";
+import helpReference from "./help-reference.png";
 
 type S = {
   id: string;
@@ -877,8 +877,8 @@ function HelpGuide({ role, close, openFeedback }: { role: "standard" | "admin"; 
 
         <details>
           <summary>Reference screenshot</summary>
-          <p className="muted">Click the image to view the original project-board reference at full size.</p>
-          <a href={mockupReference.src} target="_blank" rel="noreferrer"><img className="help-screenshot" src={mockupReference.src} alt="Mustang Projects reference screen" /></a>
+          <p className="muted">Click the image to view a full-size example of the project board.</p>
+          <a href={helpReference.src} target="_blank" rel="noreferrer"><img className="help-screenshot" src={helpReference.src} alt="Example Mustang Projects board" /></a>
         </details>
 
         {role === "admin" && (
