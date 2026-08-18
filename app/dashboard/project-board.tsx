@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
+import mockupReference from "../../MockupScreen01.jpg";
 
 type S = {
   id: string;
@@ -136,6 +137,7 @@ export function Dashboard({
     [adminTab, setAdminTab] = useState<"reports" | "admin">("reports"),
     [accountOpen, setAccountOpen] = useState(false),
     [feedbackOpen, setFeedbackOpen] = useState(false),
+    [helpOpen, setHelpOpen] = useState(false),
     [savedViewMenu, setSavedViewMenu] = useState<A | null>(null),
     [pickThree, setPickThree] = useState<A | null>(null),
     [notePreview, setNotePreview] = useState<{ body: string; left: number; top: number } | null>(null);
@@ -373,6 +375,9 @@ export function Dashboard({
           </button>
           <button className="ghost" onClick={() => setFeedbackOpen(true)}>
             Feedback
+          </button>
+          <button className="ghost" onClick={() => setHelpOpen(true)}>
+            Help
           </button>
           <button
             className="ghost"
@@ -644,6 +649,16 @@ export function Dashboard({
       )}
       {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
+      {helpOpen && (
+        <HelpGuide
+          role={role}
+          close={() => setHelpOpen(false)}
+          openFeedback={() => {
+            setHelpOpen(false);
+            setFeedbackOpen(true);
+          }}
+        />
+      )}
       {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} hiddenProjects={hiddenProjects} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
       {pickThree && <PickThree view={pickThree} projects={projects} showPickedProjects={showPickedProjects} close={() => setPickThree(null)} />}
       {accountOpen && (
@@ -783,6 +798,102 @@ function FeedbackForm({ close }: { close: () => void }) {
         <label>Subject (optional)<input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Short summary" /></label>
         <label>Message<textarea className="note-editor" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="What would make Mustang Projects better?" /></label>
         <button className="primary" disabled={sending} onClick={() => void send()}>{sending ? "Sending…" : "Send feedback"}</button>
+      </section>
+    </div>
+  );
+}
+function HelpGuide({ role, close, openFeedback }: { role: "standard" | "admin"; close: () => void; openFeedback: () => void }) {
+  return (
+    <div className="modal-backdrop" onMouseDown={close}>
+      <section className="modal help-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="close" onClick={close}>×</button>
+        <p className="eyebrow">Mustang Projects Review</p>
+        <h2>Help and guide</h2>
+        <p className="help-intro">A personal project board for keeping projects moving across all the different areas of your work. Use it to see what is next, what needs attention, and where each project stands.</p>
+
+        <details>
+          <summary>Getting started</summary>
+          <ol>
+            <li>Create a project. New projects begin as <b>Simple</b>, with one overall completion percentage.</li>
+            <li>Use <b>Manage groups</b> to make colored tags such as a client, organization, or area of work; then assign one or more groups in the project editor.</li>
+            <li>Add a target date and any useful note. Choose <b>Add stage plan</b> when a project needs more detailed tracking.</li>
+            <li>Use Search, Sort by, or a saved view to focus the board on the work you need right now.</li>
+          </ol>
+        </details>
+
+        <details>
+          <summary>Projects, progress, and stages</summary>
+          <p><b>Simple project:</b> a compact project with one overall completion percentage. Example: “Update website — 65% complete.”</p>
+          <p><b>Staged project:</b> a project broken into Pre-Production, Production, Post-production, and Confirm. Each stage has a target percentage, a completion percentage, an optional target date, and its own note.</p>
+          <p><b>Overall completion:</b> your subjective view of how complete the project is. For staged projects, the system shows the weighted stage calculation and lets you use it or retain your manual estimate.</p>
+          <p><b>Open stages / Close stages:</b> shows or hides stage detail. Staged projects normally start closed; a saved Custom view can intentionally remember an open project.</p>
+          <p><b>Stage names are customizable:</b> you can rename every stage in the project editor. Their order remains fixed so the board stays consistent.</p>
+        </details>
+
+        <details>
+          <summary>Dates, notes, groups, and money</summary>
+          <p><b>Target date:</b> a date-only planning target. A Simple project has one project target date. A Staged project derives its project target from the latest date entered on any stage.</p>
+          <p><b>Next date:</b> the earliest relevant target date used by the Next date sort. Projects without a target date are intentionally hidden in that sorted view. Past dates are marked <b>Overdue</b>.</p>
+          <p><b>Notes:</b> short, editable text reminders. Click a note to edit it; pause over an existing note to read it in a larger preview.</p>
+          <p><b>Groups:</b> your personal colored labels. They are private to their creator and can be applied to more than one project.</p>
+          <p><b>Projected Gross / Net:</b> optional expected USD amounts. Gross is the expected total income; Net is the expected amount after costs. Zero-dollar values are kept out of project cards and financial reports.</p>
+        </details>
+
+        <details>
+          <summary>Finding, arranging, and saving views</summary>
+          <p><b>Search:</b> searches project titles, groups, and notes. Selecting a project opens its full editor.</p>
+          <p><b>Sort by:</b> choose Custom order, Completion %, Next date, Projected gross, or Groups. Next date shows only dated projects, with overdue work first.</p>
+          <p><b>Custom order:</b> drag project cards above or below another card to set your own order.</p>
+          <p><b>Custom views:</b> save a useful board state, including the order, visible projects, search/filter state, and whether each staged project is open or closed. Right-click a saved view to update it or clear it.</p>
+          <p><b>Pick 3:</b> creates a focused saved view that shows exactly three chosen projects. Right-click Pick 3 to change its selections.</p>
+          <p><b>Hide / Un-Hide All:</b> right-click any project to temporarily hide it. Un-Hide All restores projects, while selecting another saved view restores that view’s saved visibility.</p>
+        </details>
+
+        <details>
+          <summary>Things you can customize</summary>
+          <ul>
+            <li><b>Project names and client names</b> — use clear names that make scanning easy.</li>
+            <li><b>Simple or staged tracking</b> — begin simple; add the stage plan only when the detail is useful.</li>
+            <li><b>Stage names, target allocations, completion, dates, and notes</b> — keep target allocations totaling 100%.</li>
+            <li><b>Overall completion</b> — preserve your judgment or accept the automatic stage calculation.</li>
+            <li><b>Groups and colors</b> — make groups reflect your real worlds of work; use distinct, readable colors.</li>
+            <li><b>Projected gross and net</b> — leave them blank/zero when money is not relevant.</li>
+            <li><b>Custom views and Pick 3</b> — save a weekly review, client-focused view, or today’s three priorities.</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>Menu buttons</summary>
+          <ul>
+            <li><b>Account:</b> update the name shown in the project-board title.</li>
+            <li><b>Expand all / Collapse all:</b> opens or closes all staged projects at once.</li>
+            <li><b>Manage groups:</b> create, rename, recolor, or remove your personal groups.</li>
+            <li><b>Feedback:</b> send a question, issue, or idea to the administrator.</li>
+            <li><b>Help:</b> opens this guide.</li>
+            <li><b>Reports:</b> build an online, printable, or CSV project report.</li>
+            <li><b>New project:</b> creates a Simple project; use Add stage plan later if needed.</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>Reference screenshot</summary>
+          <p className="muted">Click the image to view the original project-board reference at full size.</p>
+          <a href={mockupReference.src} target="_blank" rel="noreferrer"><img className="help-screenshot" src={mockupReference.src} alt="Mustang Projects reference screen" /></a>
+        </details>
+
+        {role === "admin" && (
+          <details className="admin-help">
+            <summary>Administrator-only capabilities</summary>
+            <p><b>Admin</b> is available only to administrator accounts. Administrators can invite people by their Google email address, choose their role, and see feedback with the submitting user and time.</p>
+            <p><b>View as:</b> lets an administrator read another active user’s project board without changing the administrator’s own session. It is read-only; use Close View As to return.</p>
+            <p><b>Feedback management:</b> mark feedback Completed or Deleted. Completed items are hidden by default but remain available through the status toggles.</p>
+            <p><b>Reporting:</b> administrators can build reports across accessible projects and can include completed/archived work when needed.</p>
+          </details>
+        )}
+        <div className="help-actions">
+          <button className="ghost" onClick={openFeedback}>Send feedback</button>
+          <button className="primary" onClick={close}>Close help</button>
+        </div>
       </section>
     </div>
   );

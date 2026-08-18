@@ -718,6 +718,18 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 .project-info { position:relative; }.project-info::before { content:""; position:absolute; inset:0 auto 0 0; width:var(--project-progress); background:var(--project-color); }.project-info > * { position:relative; z-index:1; }
 .target-date { display:inline-block; border-radius:999px; padding:3px 7px; background:#101215cc; color:#f1f4f7; font-size:.72rem; font-weight:800; white-space:nowrap; }.target-date.overdue { background:#571d23; color:#ffd7d7; }
 .derived-date { margin:-4px 0 12px; color:#b9c4d2; font-size:.82rem; }
+.help-modal { width:min(780px, 100%); max-height:86vh; overflow-y:auto; padding-bottom:18px; }
+.help-intro { max-width:65ch; color:#d5dbe5; line-height:1.5; }
+.help-modal details { margin:11px 0; padding:12px 14px; border:1px solid #394150; border-radius:8px; background:#141920; }
+.help-modal summary { cursor:pointer; color:#f4f6fa; font-weight:800; }
+.help-modal details[open] summary { margin-bottom:10px; }
+.help-modal p,.help-modal li { color:#d4dae4; font-size:.9rem; line-height:1.5; }
+.help-modal p { margin:8px 0; }
+.help-modal ol,.help-modal ul { margin:8px 0; padding-left:22px; }
+.help-modal li { margin:6px 0; }
+.help-modal .admin-help { border-color:#556fa4; }
+.help-screenshot { display:block; width:100%; max-height:310px; object-fit:cover; object-position:top; border:1px solid #4a5567; border-radius:6px; }
+.help-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; position:sticky; bottom:-18px; padding:12px 0 0; background:#171c25; }
 .report-preview { margin-top:18px; padding:22px; border-radius:9px; background:#f8fafc; color:#172033; }
 .report-preview .eyebrow { color:#526276; }
 .report-preview h2 { margin:4px 0 8px; color:#172033; }
