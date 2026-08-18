@@ -8,6 +8,7 @@ type S = {
   allocation: number;
   progress: number;
   color: string;
+  target_date?: string | null;
 };
 type G = { id: string; name: string; color: string };
 type N = { id: string; stage_id: string | null; body: string };
@@ -31,6 +32,7 @@ type P = {
   projected_net: number;
   projected_gross: number;
   project_stages: S[];
+  target_date?: string | null;
   project_notes: N[];
   project_group_memberships: {
     group_id: string;
@@ -44,6 +46,19 @@ const order = ["Pre-Production", "Production", "Post-production", "Confirm"],
       currency: "USD",
       maximumFractionDigits: 0,
     }).format(n || 0);
+const targetDateFor = (project: P) =>
+  project.target_date ||
+  project.project_stages
+    .map((stage) => stage.target_date)
+    .filter((date): date is string => Boolean(date))
+    .sort()
+    .at(-1) ||
+  null;
+const isOverdue = (date: string) => date < new Date().toLocaleDateString("en-CA");
+const displayDate = (date: string) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+    new Date(`${date}T12:00:00`),
+  );
 const shade = (h: string) => {
   const n = parseInt(h.slice(1), 16);
   const r = n >> 16,
@@ -112,7 +127,9 @@ export function Dashboard({
     [drag, setDrag] = useState<string | null>(null),
     [drop, setDrop] = useState<string | null>(null),
     dragRef = useRef<string | null>(null),
-    [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set()),
+    [collapsedStages, setCollapsedStages] = useState<Set<string>>(
+      () => new Set(initialProjects.filter((project) => project.mode === "staged").map((project) => project.id)),
+    ),
     [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set()),
     [sort, setSort] = useState("manual"),
     [adminOpen, setAdminOpen] = useState(false),
@@ -147,6 +164,7 @@ export function Dashboard({
           (p) =>
             !hiddenProjects.has(p.id) &&
             (inactive || p.status === "active") &&
+            (sort !== "deadline" || Boolean(targetDateFor(p))) &&
             `${p.title} ${p.project_group_memberships.map((x) => x.project_groups?.name).join(" ")} ${p.project_notes.map((x) => x.body).join(" ")}`
               .toLowerCase()
               .includes(query.toLowerCase()),
@@ -154,6 +172,8 @@ export function Dashboard({
         .sort((a, b) =>
           sort === "completion"
             ? b.completion - a.completion
+            : sort === "deadline"
+              ? String(targetDateFor(a)).localeCompare(String(targetDateFor(b)))
             : sort === "gross"
               ? Number(b.projected_gross) - Number(a.projected_gross)
               : sort === "net"
@@ -303,6 +323,7 @@ export function Dashboard({
             <select value={sort} onChange={(e) => applySort(e.target.value)}>
               <option value="manual">Custom order</option>
               <option value="completion">Completion %</option>
+              <option value="deadline">Next date</option>
               <option value="gross">Projected gross</option>
               <option value="groups">Groups</option>
             </select>
@@ -384,7 +405,8 @@ export function Dashboard({
               (x) => x.project_groups,
             )?.project_groups,
             color = group?.color || "#1746a4",
-            overall = p.project_notes.find((x) => !x.stage_id)?.body;
+            overall = p.project_notes.find((x) => !x.stage_id)?.body,
+            targetDate = targetDateFor(p);
           return (
             <div
               key={p.id}
@@ -532,6 +554,11 @@ export function Dashboard({
                       {p.title}
                       {p.client_name && <em> · {p.client_name}</em>}
                     </h2>
+                    {targetDate && (
+                      <span className={`target-date ${isOverdue(targetDate) ? "overdue" : ""}`}>
+                        {isOverdue(targetDate) ? "Overdue" : "Next date"}: {displayDate(targetDate)}
+                      </span>
+                    )}
                     <div className="group-list">
                       {p.project_group_memberships.map(
                         (x, i) =>
@@ -817,12 +844,14 @@ function ProjectEdit({
     [completion, setCompletion] = useState(project.completion),
     [gross, setGross] = useState(project.projected_gross),
     [net, setNet] = useState(project.projected_net),
+    [targetDate, setTargetDate] = useState(project.target_date || ""),
     [stages, setStages] = useState(project.project_stages),
     [chosen, setChosen] = useState(
       project.project_group_memberships.map((x) => x.group_id),
     ),
     [saving, setSaving] = useState(false),
     total = stages.reduce((x, s) => x + s.allocation, 0);
+  const derivedTargetDate = stages.map((stage) => stage.target_date).filter((date): date is string => Boolean(date)).sort().at(-1) || "";
   const calculatedCompletion = Math.round(
     stages.reduce((sum, stage) => sum + stage.allocation * stage.progress, 0) /
       100,
@@ -841,6 +870,7 @@ function ProjectEdit({
           completion,
           gross,
           net,
+          targetDate: project.mode === "simple" ? targetDate || null : null,
           stages:
             project.mode === "staged"
               ? stages.map((s) => ({
@@ -848,6 +878,7 @@ function ProjectEdit({
                   name: s.name,
                   allocation: s.allocation,
                   progress: s.progress,
+                  target_date: s.target_date || null,
                 }))
               : null,
         }),
@@ -909,6 +940,12 @@ function ProjectEdit({
                 onChange={(e) => setNet(Number(e.target.value))}
               />
             </label>
+            {project.mode === "simple" && (
+              <label>
+                Target date
+                <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+              </label>
+            )}
           </div>
           <div className="project-groups-column">
             <h3>Groups</h3>
@@ -942,6 +979,7 @@ function ProjectEdit({
                 Targets: {total}% / 100%
               </small>
             </h3>
+            <p className="derived-date">Project target date: {derivedTargetDate ? displayDate(derivedTargetDate) : "Not set"}</p>
             {stages.map((s) => (
               <div className="stage-edit" key={s.id}>
                 <span style={{ background: s.color }} />
@@ -987,6 +1025,18 @@ function ProjectEdit({
                             ? { ...a, progress: Number(e.target.value) }
                             : a,
                         ),
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  Target date
+                  <input
+                    type="date"
+                    value={s.target_date || ""}
+                    onChange={(e) =>
+                      setStages((x) =>
+                        x.map((a) => a.id === s.id ? { ...a, target_date: e.target.value || null } : a),
                       )
                     }
                   />

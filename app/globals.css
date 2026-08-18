@@ -707,7 +707,7 @@ select {
 .project-info h2 { margin-right:14px; }.group-list { margin-left:0; margin-right:14px; }.income { margin-left:0; }
 .project-summary { display:flex; align-items:center; gap:14px; min-width:0; padding-right:110px; }.project-summary h2,.project-summary .group-list,.project-summary .income { flex:0 0 auto; margin:0; }.project-summary h2 { overflow:hidden; text-overflow:ellipsis; }.project-summary .income { position:static; white-space:nowrap; }
 .sort-control { display:flex; align-items:center; gap:5px; font-size:.78rem; white-space:nowrap; }.sort-control select { padding:6px; }.saved-views { display:flex; gap:5px; }.view-button { padding:6px 8px; font-size:.72rem; background:#232936; }
-.second-row { width:100%; margin-top:10px; }.stage-edit { grid-template-columns:12px 1fr 150px 100px 110px; }.stage-name input { padding:5px; }.admin-modal button { margin:5px 7px 5px 0; }.admin-modal select { display:block; margin:5px 0 12px; }.admin-modal .tabs { margin:10px 0; }
+.second-row { width:100%; margin-top:10px; }.stage-edit { grid-template-columns:12px 1fr 150px 100px 110px 142px; }.stage-name input { padding:5px; }.admin-modal button { margin:5px 7px 5px 0; }.admin-modal select { display:block; margin:5px 0 12px; }.admin-modal .tabs { margin:10px 0; }
 header { display:block; } header .title-row { display:flex; align-items:center; gap:16px; flex-wrap:nowrap; } header .title-row > div { flex:0 0 auto; } header h1 { white-space:nowrap; } header .header-search { flex:1 1 290px; width:auto; } header .saved-views { flex:0 0 auto; } header .actions.second-row { display:flex; width:100%; justify-content:flex-end; gap:10px; margin:12px 0 20px; }
 .finance-pill { display:inline-block; background:#000; color:#fff; border:1px solid #ffffff55; border-radius:999px; padding:2px 7px; font-size:.68rem; font-weight:700; white-space:nowrap; }
 .drop-end { min-height:36px; display:grid; place-items:center; border:2px dashed transparent; border-radius:8px; color:transparent; transition:.12s; }.drop-end.active { border-color:#82a5ff; color:#bdd0ff; background:#1b315d; }
@@ -716,6 +716,8 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 .title-row { align-items:center; }.header-check { white-space:nowrap; margin-left:4px; font-size:.78rem; }
 .stages { background:#151719; }.stage { position:relative; background:#24282b !important; opacity:1 !important; color:#f2f4f5; }.stage::before { content:""; position:absolute; inset:0 auto 0 0; width:var(--stage-progress); background:#4c5357; }.stage > span,.stage > small,.stage > .note-preview { position:relative; z-index:1; }.stage span { font-size:.72rem; letter-spacing:.02em; }.stage small { font-size:1.05rem; font-weight:800; margin-top:2px; }.stage .note-preview { color:#f4f5f5; background:#0d0f1088; }
 .project-info { position:relative; }.project-info::before { content:""; position:absolute; inset:0 auto 0 0; width:var(--project-progress); background:var(--project-color); }.project-info > * { position:relative; z-index:1; }
+.target-date { display:inline-block; border-radius:999px; padding:3px 7px; background:#101215cc; color:#f1f4f7; font-size:.72rem; font-weight:800; white-space:nowrap; }.target-date.overdue { background:#571d23; color:#ffd7d7; }
+.derived-date { margin:-4px 0 12px; color:#b9c4d2; font-size:.82rem; }
 .report-preview { margin-top:18px; padding:22px; border-radius:9px; background:#f8fafc; color:#172033; }
 .report-preview .eyebrow { color:#526276; }
 .report-preview h2 { margin:4px 0 8px; color:#172033; }
