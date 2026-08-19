@@ -146,7 +146,14 @@ export function Dashboard({
   const pickThreeView = arrangements.find((arrangement) => arrangement.positions.__view_kind__ === "pick3" || arrangement.name === "Pick 3 projects");
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
     suppressClick = useRef(false),
-    notePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    notePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    mobileRefreshPress = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function refreshMobileLayout() {
+    window.dispatchEvent(new Event("resize"));
+    const refreshedUrl = new URL(window.location.href);
+    refreshedUrl.searchParams.set("mobileRefresh", String(Date.now()));
+    window.location.assign(refreshedUrl.toString());
+  }
   function startNotePreview(event: MouseEvent<HTMLButtonElement>, body?: string) {
     if (!body) return;
     if (notePreviewTimer.current) clearTimeout(notePreviewTimer.current);
@@ -302,7 +309,30 @@ export function Dashboard({
       <header>
         <div className="title-row">
           <div>
-            <p className="eyebrow">Mustang Projects Review</p>
+            <p
+              className="eyebrow mobile-refresh-title"
+              title="Press and hold to refresh this phone view"
+              onTouchStart={() => {
+                mobileRefreshPress.current = setTimeout(() => {
+                  if (navigator.vibrate) navigator.vibrate(35);
+                  refreshMobileLayout();
+                }, 850);
+              }}
+              onTouchEnd={() => {
+                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
+                mobileRefreshPress.current = null;
+              }}
+              onTouchMove={() => {
+                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
+                mobileRefreshPress.current = null;
+              }}
+              onTouchCancel={() => {
+                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
+                mobileRefreshPress.current = null;
+              }}
+            >
+              Mustang Projects Review
+            </p>
             <h1>{name.split(" ")[0]}'s projects</h1>
             {viewAs && <p className="viewing-as">Viewing as {viewAs.name} ({viewAs.email})</p>}
           </div>
