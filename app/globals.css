@@ -710,6 +710,10 @@ select {
 .second-row { width:100%; margin-top:10px; }.stage-edit { grid-template-columns:12px 1fr 150px 100px 110px 142px; }.stage-name input { padding:5px; }.admin-modal button { margin:5px 7px 5px 0; }.admin-modal select { display:block; margin:5px 0 12px; }.admin-modal .tabs { margin:10px 0; }
 header { display:block; } header .title-row { display:flex; align-items:center; gap:16px; flex-wrap:nowrap; } header .title-row > div { flex:0 0 auto; } header h1 { white-space:nowrap; } header .header-search { flex:1 1 290px; width:auto; } header .saved-views { flex:0 0 auto; } header .actions.second-row { display:flex; width:100%; justify-content:flex-end; gap:10px; margin:12px 0 20px; }
 .finance-pill { display:inline-block; background:#000; color:#fff; border:1px solid #ffffff55; border-radius:999px; padding:2px 7px; font-size:.68rem; font-weight:700; white-space:nowrap; }
+.paid-pill { border-color:#66c79a; color:#c4f7d9; }
+.paid-full-pill { border-color:#e2c66d; color:#fff0a8; }
+.modal label.paid-full-control { display:inline-flex; align-items:center; gap:7px; width:fit-content; margin-top:2px; }
+.modal label.paid-full-control input { display:inline-block; width:auto; margin:0; }
 .drop-end { min-height:36px; display:grid; place-items:center; border:2px dashed transparent; border-radius:8px; color:transparent; transition:.12s; }.drop-end.active { border-color:#82a5ff; color:#bdd0ff; background:#1b315d; }
 .stage .note-preview { position:absolute !important; top:6px !important; right:6px !important; left:auto !important; display:inline-block !important; width:auto; max-width:48%; }.stage > span { display:inline-block !important; padding-right:4px; }.stage small { margin-top:12px; }
 .board { gap:20px; }

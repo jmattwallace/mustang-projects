@@ -66,6 +66,8 @@ create table public.projects (
   completion smallint not null default 0 check (completion between 0 and 100),
   projected_gross numeric(12,2) not null default 0 check (projected_gross >= 0),
   projected_net numeric(12,2) not null default 0 check (projected_net >= 0),
+  actual_paid numeric(12,2) not null default 0 check (actual_paid >= 0),
+  paid_in_full boolean not null default false,
   position numeric not null default extract(epoch from now()),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

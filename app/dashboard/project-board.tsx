@@ -32,6 +32,8 @@ type P = {
   mode?: "simple" | "staged";
   projected_net: number;
   projected_gross: number;
+  actual_paid: number;
+  paid_in_full: boolean;
   project_stages: S[];
   target_date?: string | null;
   project_notes: N[];
@@ -195,7 +197,8 @@ export function Dashboard({
             : sort === "deadline"
               ? String(targetDateFor(a)).localeCompare(String(targetDateFor(b)))
             : sort === "gross"
-              ? Number(b.projected_gross) - Number(a.projected_gross)
+              ? Number(b.actual_paid) - Number(a.actual_paid) ||
+                Number(b.projected_gross) - Number(a.projected_gross)
               : sort === "net"
                 ? Number(b.projected_net) - Number(a.projected_net)
                 : sort === "groups"
@@ -619,6 +622,12 @@ export function Dashboard({
                         {cash(Number(p.projected_net))} Net
                       </span>
                     )}
+                    {Number(p.actual_paid) > 0 && (
+                      <span className="finance-pill paid-pill">
+                        {cash(Number(p.actual_paid))} Paid
+                      </span>
+                    )}
+                    {p.paid_in_full && <span className="finance-pill paid-full-pill">Paid in full</span>}
                   </div>
                   {p.mode === "staged" && (
                     <button
@@ -987,6 +996,8 @@ function ProjectEdit({
     [completion, setCompletion] = useState(project.completion),
     [gross, setGross] = useState(project.projected_gross),
     [net, setNet] = useState(project.projected_net),
+    [actualPaid, setActualPaid] = useState(project.actual_paid || 0),
+    [paidInFull, setPaidInFull] = useState(project.paid_in_full || false),
     [targetDate, setTargetDate] = useState(project.target_date || ""),
     [stages, setStages] = useState(project.project_stages),
     [chosen, setChosen] = useState(
@@ -1013,6 +1024,8 @@ function ProjectEdit({
           completion,
           gross,
           net,
+          actualPaid,
+          paidInFull,
           targetDate: project.mode === "simple" ? targetDate || null : null,
           stages:
             project.mode === "staged"
@@ -1082,6 +1095,23 @@ function ProjectEdit({
                 value={net}
                 onChange={(e) => setNet(Number(e.target.value))}
               />
+            </label>
+            <label>
+              Actual paid so far
+              <input
+                type="number"
+                min="0"
+                value={actualPaid}
+                onChange={(e) => setActualPaid(Number(e.target.value))}
+              />
+            </label>
+            <label className="check paid-full-control">
+              <input
+                type="checkbox"
+                checked={paidInFull}
+                onChange={(e) => setPaidInFull(e.target.checked)}
+              />
+              Paid in full
             </label>
             {project.mode === "simple" && (
               <label>
@@ -1329,7 +1359,7 @@ function AdminReports({
       (includeArchived || project.status === "active"),
   );
   const financialProjects = reportProjects.filter(
-    (project) => Number(project.projected_gross) > 0 || Number(project.projected_net) > 0,
+    (project) => Number(project.projected_gross) > 0 || Number(project.projected_net) > 0 || Number(project.actual_paid) > 0,
   );
   const totalGross = financialProjects.reduce(
     (total, project) => total + Number(project.projected_gross || 0),
@@ -1337,6 +1367,10 @@ function AdminReports({
   );
   const totalNet = financialProjects.reduce(
     (total, project) => total + Number(project.projected_net || 0),
+    0,
+  );
+  const totalPaid = financialProjects.reduce(
+    (total, project) => total + Number(project.actual_paid || 0),
     0,
   );
   const reportTitle =
@@ -1373,14 +1407,16 @@ function AdminReports({
   }
   function download() {
     const rows = [
-      ["Project", "Completion", "Projected Gross", "Projected Net"],
+      ["Project", "Completion", "Projected Gross", "Projected Net", "Actual Paid", "Paid in Full"],
       ...financialProjects.map((p) => [
         p.title,
         `${p.completion}%`,
         String(p.projected_gross),
         String(p.projected_net),
+        String(p.actual_paid),
+        p.paid_in_full ? "Yes" : "No",
       ]),
-      ["Totals", "", String(totalGross), String(totalNet)],
+      ["Totals", "", String(totalGross), String(totalNet), String(totalPaid), ""],
     ];
     const blob = new Blob(
       [
@@ -1455,7 +1491,7 @@ function AdminReports({
                 <p className="muted">{reportProjects.length} projects · generated {new Date().toLocaleDateString()}</p>
                 {(reportType === "all" || reportType === "financial") && <>
                   {reportType === "all" && <h3>Financial summary</h3>}
-                  <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th></tr></thead><tbody>{financialProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th></th><th>{cash(totalGross)}</th><th>{cash(totalNet)}</th></tr></tfoot></table>
+                  <table><thead><tr><th>Project</th><th>Complete</th><th>Gross</th><th>Net</th><th>Paid</th><th>Paid in full</th></tr></thead><tbody>{financialProjects.map((p) => <tr key={p.id}><td>{p.title}</td><td>{p.completion}%</td><td>{cash(Number(p.projected_gross))}</td><td>{cash(Number(p.projected_net))}</td><td>{cash(Number(p.actual_paid))}</td><td>{p.paid_in_full ? "Yes" : "No"}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th></th><th>{cash(totalGross)}</th><th>{cash(totalNet)}</th><th>{cash(totalPaid)}</th><th></th></tr></tfoot></table>
                 </>}
                 {(reportType === "all" || reportType === "dates") && <section className="report-notes"><h3>{reportType === "all" ? "Notes timeline" : "Project notes"}</h3><ul>{notesFor().map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
                 {(reportType === "all" || reportType === "travel") && <section className="report-notes"><h3>Travel notes</h3><ul>{notesFor(true).map((n, i) => <li key={`${n.project}-${i}`}><b>{n.project}:</b> {n.body}</li>)}</ul></section>}
