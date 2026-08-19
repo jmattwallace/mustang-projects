@@ -154,6 +154,17 @@ export function Dashboard({
     refreshedUrl.searchParams.set("mobileRefresh", String(Date.now()));
     window.location.assign(refreshedUrl.toString());
   }
+  function beginMobileRefresh() {
+    if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
+    mobileRefreshPress.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate(35);
+      refreshMobileLayout();
+    }, 850);
+  }
+  function cancelMobileRefresh() {
+    if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
+    mobileRefreshPress.current = null;
+  }
   function startNotePreview(event: MouseEvent<HTMLButtonElement>, body?: string) {
     if (!body) return;
     if (notePreviewTimer.current) clearTimeout(notePreviewTimer.current);
@@ -312,24 +323,15 @@ export function Dashboard({
             <p
               className="eyebrow mobile-refresh-title"
               title="Press and hold to refresh this phone view"
-              onTouchStart={() => {
-                mobileRefreshPress.current = setTimeout(() => {
-                  if (navigator.vibrate) navigator.vibrate(35);
-                  refreshMobileLayout();
-                }, 850);
+              onPointerDown={(event) => {
+                if (event.pointerType !== "touch") return;
+                event.preventDefault();
+                beginMobileRefresh();
               }}
-              onTouchEnd={() => {
-                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
-                mobileRefreshPress.current = null;
-              }}
-              onTouchMove={() => {
-                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
-                mobileRefreshPress.current = null;
-              }}
-              onTouchCancel={() => {
-                if (mobileRefreshPress.current) clearTimeout(mobileRefreshPress.current);
-                mobileRefreshPress.current = null;
-              }}
+              onPointerUp={cancelMobileRefresh}
+              onPointerCancel={cancelMobileRefresh}
+              onPointerLeave={cancelMobileRefresh}
+              onContextMenu={(event) => event.preventDefault()}
             >
               Mustang Projects Review
             </p>

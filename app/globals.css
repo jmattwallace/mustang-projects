@@ -753,9 +753,9 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 .check { display:inline-flex; align-items:center; gap:6px; }
 .pick-three-list { display:grid; gap:7px; max-height:300px; overflow:auto; margin:14px 0; text-align:left; }.pick-three-list label { display:flex !important; justify-content:flex-start !important; align-items:center; gap:8px; width:100%; margin:0; text-align:left; white-space:nowrap; }.pick-three-list input { width:auto !important; margin:0; flex:0 0 auto; }
 @media (max-width: 720px) {
-  html, body { max-width:100%; overflow-x:hidden; }
+  html, body { max-width:none; overflow-x:visible; }
   main { width:100%; max-width:none; padding:26px 24px 64px; }
-  header, .board { width:100%; min-width:0; }
+  header, .board, .drop-wrap, .project { width:100%; min-width:0; }
   header .title-row {
     display:grid;
     grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
@@ -784,5 +784,5 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
     gap:10px;
   }
   .open-stages { right:60px; font-size:.58rem; padding:3px 6px; }
-  .mobile-refresh-title { touch-action:manipulation; user-select:none; }
+  .mobile-refresh-title { touch-action:manipulation; user-select:none; cursor:pointer; }
 }
