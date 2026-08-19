@@ -754,7 +754,7 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 .pick-three-list { display:grid; gap:7px; max-height:300px; overflow:auto; margin:14px 0; text-align:left; }.pick-three-list label { display:flex !important; justify-content:flex-start !important; align-items:center; gap:8px; width:100%; margin:0; text-align:left; white-space:nowrap; }.pick-three-list input { width:auto !important; margin:0; flex:0 0 auto; }
 @media (max-width: 720px) {
   html, body { max-width:none; overflow-x:visible; }
-  main { width:100%; max-width:none; padding:26px 24px 64px; }
+  main { width:100%; max-width:none; padding:22px 10px 56px; }
   header, .board, .drop-wrap, .project { width:100%; min-width:0; }
   header .title-row {
     display:grid;
@@ -783,6 +783,63 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
     justify-content:flex-start;
     gap:10px;
   }
-  .open-stages { right:60px; font-size:.58rem; padding:3px 6px; }
+  .simple-progress { height:20px; }
+  .simple-progress .note-preview.overall {
+    right:6px;
+    top:1px;
+    max-width:66%;
+    font-size:.58rem;
+  }
+  .project-info {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) max-content;
+    grid-template-areas:"summary percentage" "summary stages";
+    align-items:center;
+    column-gap:8px;
+    row-gap:4px;
+    min-height:70px;
+    padding:8px 10px 8px 12px;
+    white-space:normal;
+  }
+  .project-summary {
+    grid-area:summary;
+    display:flex;
+    flex-wrap:wrap;
+    align-content:center;
+    gap:5px 7px;
+    min-width:0;
+    padding:0;
+  }
+  .project-summary h2 {
+    flex:0 0 100%;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:.88rem;
+  }
+  .target-date {
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-size:.6rem;
+  }
+  .finance-pill { padding:2px 6px; font-size:.58rem; }
+  .project-info strong {
+    grid-area:percentage;
+    position:static;
+    transform:none;
+    align-self:end;
+    font-size:1rem;
+    line-height:1;
+  }
+  .open-stages {
+    grid-area:stages;
+    position:static;
+    transform:none;
+    justify-self:end;
+    padding:3px 6px;
+    font-size:.54rem;
+  }
   .mobile-refresh-title { touch-action:manipulation; user-select:none; cursor:pointer; }
 }
