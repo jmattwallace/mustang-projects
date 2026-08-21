@@ -103,6 +103,7 @@ export function Dashboard({
   initialProjects,
   groups,
   arrangements,
+  boardOwnerId,
   name,
   email,
   role,
@@ -113,6 +114,7 @@ export function Dashboard({
   initialProjects: P[];
   groups: G[];
   arrangements: A[];
+  boardOwnerId: string;
   name: string;
   email: string;
   role: "standard" | "admin";
@@ -143,7 +145,7 @@ export function Dashboard({
     [savedViewMenu, setSavedViewMenu] = useState<A | null>(null),
     [pickThree, setPickThree] = useState<A | null>(null),
     [notePreview, setNotePreview] = useState<{ body: string; left: number; top: number } | null>(null);
-  const readOnly = Boolean(viewAs);
+  const readOnly = false;
   const regularArrangements = arrangements.filter((arrangement) => arrangement.positions.__view_kind__ !== "pick3" && arrangement.name !== "Pick 3 projects");
   const pickThreeView = arrangements.find((arrangement) => arrangement.positions.__view_kind__ === "pick3" || arrangement.name === "Pick 3 projects");
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null),
@@ -214,7 +216,7 @@ export function Dashboard({
   );
   async function newProject() {
     setBusy(true);
-    const r = await fetch("/api/projects", { method: "POST" }),
+    const r = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ownerId: boardOwnerId }) }),
       b = (await r.json()) as { ok?: boolean; error?: string };
     b.ok ? location.reload() : alert(b.error);
     setBusy(false);
@@ -262,9 +264,10 @@ export function Dashboard({
     const r = await fetch("/api/arrangements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: existing?.id,
-        name,
+        body: JSON.stringify({
+          id: existing?.id,
+          ownerId: boardOwnerId,
+          name,
         positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }),
       }),
     });
@@ -399,9 +402,9 @@ export function Dashboard({
           <button className="ghost title-signout" onClick={() => (location.href = viewAs ? "/dashboard" : "/auth/signout")}>
             {viewAs ? "Close View As" : "Sign out"}
           </button>
-          <button className="ghost" onClick={() => setAccountOpen(true)}>
+          {!viewAs && <button className="ghost" onClick={() => setAccountOpen(true)}>
             Account
-          </button>
+          </button>}
           <button className="ghost" onClick={toggleAllStages}>
             {projects.some((project) => project.mode === "staged") && projects.filter((project) => project.mode === "staged").every((project) => collapsedStages.has(project.id)) ? "Expand all" : "Collapse all"}
           </button>
@@ -688,7 +691,7 @@ export function Dashboard({
           {notePreview.body}
         </div>
       )}
-      {manage && <GroupEdit groups={groups} close={() => setManage(false)} />}
+      {manage && <GroupEdit groups={groups} ownerId={boardOwnerId} close={() => setManage(false)} />}
       {feedbackOpen && <FeedbackForm close={() => setFeedbackOpen(false)} />}
       {helpOpen && (
         <HelpGuide
@@ -700,8 +703,8 @@ export function Dashboard({
           }}
         />
       )}
-      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} collapsedStages={collapsedStages} hiddenProjects={hiddenProjects} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
-      {pickThree && <PickThree view={pickThree} projects={projects} showPickedProjects={showPickedProjects} close={() => setPickThree(null)} />}
+      {savedViewMenu && <SavedViewMenu view={savedViewMenu} projects={projects} ownerId={boardOwnerId} collapsedStages={collapsedStages} hiddenProjects={hiddenProjects} query={query} inactive={inactive} sort={sort} close={() => setSavedViewMenu(null)} />}
+      {pickThree && <PickThree view={pickThree} projects={projects} ownerId={boardOwnerId} showPickedProjects={showPickedProjects} close={() => setPickThree(null)} />}
       {accountOpen && (
         <AccountEdit
           currentName={name}
@@ -939,12 +942,12 @@ function HelpGuide({ role, close, openFeedback }: { role: "standard" | "admin"; 
     </div>
   );
 }
-function SavedViewMenu({ view, projects, collapsedStages, hiddenProjects, query, inactive, sort, close }: { view: A; projects: P[]; collapsedStages: Set<string>; hiddenProjects: Set<string>; query: string; inactive: boolean; sort: string; close: () => void }) {
+function SavedViewMenu({ view, projects, ownerId, collapsedStages, hiddenProjects, query, inactive, sort, close }: { view: A; projects: P[]; ownerId: string; collapsedStages: Set<string>; hiddenProjects: Set<string>; query: string; inactive: boolean; sort: string; close: () => void }) {
   async function update() {
     const response = await fetch("/api/arrangements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: view.id, name: view.name, positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }) }),
+      body: JSON.stringify({ id: view.id, ownerId, name: view.name, positions: savedPositions(projects, collapsedStages, hiddenProjects, { query, inactive, sort }) }),
     });
     // The current board already reflects the exact state just saved. Keeping it
     // in place avoids briefly reopening every staged project after an update.
@@ -952,7 +955,7 @@ function SavedViewMenu({ view, projects, collapsedStages, hiddenProjects, query,
   }
   async function clear() {
     if (!confirm(`Clear the saved view “${view.name}”?`)) return;
-    const response = await fetch(`/api/arrangements?id=${encodeURIComponent(view.id)}`, { method: "DELETE" });
+    const response = await fetch(`/api/arrangements?id=${encodeURIComponent(view.id)}&ownerId=${encodeURIComponent(ownerId)}`, { method: "DELETE" });
     response.ok ? location.reload() : alert(await errorFrom(response));
   }
   return (
@@ -968,7 +971,7 @@ function SavedViewMenu({ view, projects, collapsedStages, hiddenProjects, query,
     </div>
   );
 }
-function PickThree({ view, projects, showPickedProjects, close }: { view: A; projects: P[]; showPickedProjects: (picks: string[]) => void; close: () => void }) {
+function PickThree({ view, projects, ownerId, showPickedProjects, close }: { view: A; projects: P[]; ownerId: string; showPickedProjects: (picks: string[]) => void; close: () => void }) {
   const existing = Object.keys(view.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", ""));
   const [picked, setPicked] = useState<string[]>(existing);
   async function save() {
@@ -978,7 +981,7 @@ function PickThree({ view, projects, showPickedProjects, close }: { view: A; pro
       ...Object.fromEntries(picked.map((id) => [`__pick__${id}`, true])),
       __view_kind__: "pick3",
     };
-    const response = await fetch("/api/arrangements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: view.id || undefined, name: "Pick 3 projects", positions }) });
+    const response = await fetch("/api/arrangements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: view.id || undefined, ownerId, name: "Pick 3 projects", positions }) });
     response.ok ? showPickedProjects(picked) : alert(await errorFrom(response));
   }
   return <div className="modal-backdrop" onMouseDown={close}><section className="modal compact" onMouseDown={(event) => event.stopPropagation()}><button className="close" onClick={close}>×</button><p className="eyebrow">Pick 3 projects</p><h2>Show only three projects</h2><p className="muted">Choose exactly three projects for this saved view.</p><div className="pick-three-list">{projects.map((project) => <label key={project.id}><input type="checkbox" checked={picked.includes(project.id)} onChange={(event) => setPicked((current) => event.target.checked ? [...current, project.id] : current.filter((id) => id !== project.id))} disabled={!picked.includes(project.id) && picked.length === 3} /> {project.title}</label>)}</div><button className="primary" onClick={() => void save()}>Save Pick 3 view</button></section></div>;
@@ -1245,7 +1248,7 @@ function ProjectEdit({
     </div>
   );
 }
-function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
+function GroupEdit({ groups, ownerId, close }: { groups: G[]; ownerId: string; close: () => void }) {
   const [name, setName] = useState(""),
     [color, setColor] = useState("#2763d9"),
     [editing, setEditing] = useState<G | null>(null),
@@ -1254,7 +1257,7 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
     const r = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({ name, color, ownerId }),
     });
     r.ok ? location.reload() : alert(await errorFrom(r));
   }
@@ -1264,14 +1267,14 @@ function GroupEdit({ groups, close }: { groups: G[]; close: () => void }) {
     const r = await fetch("/api/groups", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editing),
+      body: JSON.stringify({ ...editing, ownerId }),
     });
     r.ok ? location.reload() : alert(await errorFrom(r));
     setSaving(false);
   }
   async function remove(group: G) {
     if (!confirm(`Delete the group “${group.name}”? It will be removed from its projects.`)) return;
-    const r = await fetch(`/api/groups?id=${encodeURIComponent(group.id)}`, { method: "DELETE" });
+    const r = await fetch(`/api/groups?id=${encodeURIComponent(group.id)}&ownerId=${encodeURIComponent(ownerId)}`, { method: "DELETE" });
     r.ok ? location.reload() : alert(await errorFrom(r));
   }
   return (

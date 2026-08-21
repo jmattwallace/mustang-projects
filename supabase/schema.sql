@@ -160,7 +160,7 @@ create function public.can_read_project(target_project uuid) returns boolean lan
   select exists(select 1 from public.projects p where p.id = target_project and (p.owner_id = auth.uid() or public.is_admin() or exists(select 1 from public.project_shares s where s.project_id = p.id and s.viewer_id = auth.uid())));
 $$;
 create function public.can_edit_project(target_project uuid) returns boolean language sql stable security definer set search_path = public as $$
-  select exists(select 1 from public.projects p where p.id = target_project and p.owner_id = auth.uid());
+  select exists(select 1 from public.projects p where p.id = target_project and (p.owner_id = auth.uid() or public.is_admin()));
 $$;
 
 alter table public.profiles enable row level security;
@@ -185,8 +185,8 @@ create policy "owners edit projects" on public.projects for update to authentica
 create policy "owners delete projects" on public.projects for delete to authenticated using (public.can_edit_project(id));
 create policy "read project children" on public.project_stages for select to authenticated using (public.can_read_project(project_id));
 create policy "owners manage stages" on public.project_stages for all to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
-create policy "read groups" on public.project_groups for select to authenticated using (creator_id = auth.uid());
-create policy "manage own groups" on public.project_groups for all to authenticated using (creator_id = auth.uid()) with check (creator_id = auth.uid());
+create policy "read groups" on public.project_groups for select to authenticated using (creator_id = auth.uid() or public.is_admin());
+create policy "manage own groups" on public.project_groups for all to authenticated using (creator_id = auth.uid() or public.is_admin()) with check (creator_id = auth.uid() or public.is_admin());
 create policy "read group memberships" on public.project_group_memberships for select to authenticated using (public.can_read_project(project_id));
 create policy "owners manage group memberships" on public.project_group_memberships for all to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
 create policy "read shares" on public.project_shares for select to authenticated using (public.can_read_project(project_id));
@@ -197,7 +197,7 @@ create policy "read notes" on public.project_notes for select to authenticated u
 create policy "owners manage notes" on public.project_notes for all to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
 create policy "read expenses" on public.expenses for select to authenticated using (public.can_read_project(project_id));
 create policy "owners manage expenses" on public.expenses for all to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
-create policy "manage own arrangements" on public.saved_arrangements for all to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy "manage own arrangements" on public.saved_arrangements for all to authenticated using (owner_id = auth.uid() or public.is_admin()) with check (owner_id = auth.uid() or public.is_admin());
 create policy "admins read audit log" on public.admin_audit_log for select to authenticated using (public.is_admin());
 
 -- Validate the stage allocation rule whenever a stage row changes.
