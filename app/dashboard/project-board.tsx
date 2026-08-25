@@ -929,7 +929,7 @@ function HelpGuide({ role, close, openFeedback }: { role: "standard" | "admin"; 
           <details className="admin-help">
             <summary>Administrator-only capabilities</summary>
             <p><b>Admin</b> is available only to administrator accounts. Administrators can invite people by their Google email address, choose their role, and see feedback with the submitting user and time.</p>
-            <p><b>View as:</b> lets an administrator read another active user’s project board without changing the administrator’s own session. It is read-only; use Close View As to return.</p>
+            <p><b>View as:</b> lets an administrator work in another active user’s project board without changing the administrator’s own session. Project work remains available, while the selected person’s Account profile stays protected. Use Close View As to return.</p>
             <p><b>Feedback management:</b> mark feedback Completed or Deleted. Completed items are hidden by default but remain available through the status toggles.</p>
             <p><b>Reporting:</b> administrators can build reports across accessible projects and can include completed/archived work when needed.</p>
           </details>
@@ -1018,6 +1018,12 @@ function ProjectEdit({
   async function save() {
     if (project.mode === "staged" && total !== 100)
       return alert("Stage targets must total 100%.");
+    let status: "active" | "completed" | undefined;
+    if (completion === 100 && project.status !== "completed") {
+      if (confirm(`Mark “${title || project.title}” as complete? It will be hidden from the normal board and shown only when Include completed is turned on.`)) status = "completed";
+    } else if (completion < 100 && project.status === "completed") {
+      status = "active";
+    }
     setSaving(true);
     const r = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
@@ -1029,6 +1035,7 @@ function ProjectEdit({
           net,
           actualPaid,
           paidInFull,
+          status,
           targetDate: project.mode === "simple" ? targetDate || null : null,
           stages:
             project.mode === "staged"
