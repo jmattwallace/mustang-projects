@@ -14,5 +14,5 @@ export async function POST(request: NextRequest) {
     : await supabase.rpc("create_new_project");
   const { data: projectId, error } = result;
   if (error || !projectId) return NextResponse.json({ error: error?.message || "Project could not be created." }, { status: 400 });
-  return NextResponse.json({ ok: true }, { headers: response.headers });
+  return NextResponse.json({ ok: true, projectId }, { headers: response.headers });
 }

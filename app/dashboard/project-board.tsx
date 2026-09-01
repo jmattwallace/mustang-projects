@@ -71,6 +71,22 @@ const shade = (h: string) => {
   // Keep only a subtle (30%) group-color tint, then darken it strongly.
   return `rgb(${Math.round((r * 0.3 + gray * 0.7) * 0.42)},${Math.round((g * 0.3 + gray * 0.7) * 0.42)},${Math.round((b * 0.3 + gray * 0.7) * 0.42)})`;
 };
+function contrastAgainstWhite(hex: string) {
+  const channels = hex.match(/[a-f\d]{2}/gi)?.map((value) => parseInt(value, 16)) || [0, 0, 0];
+  const luminance = channels
+    .map((channel) => channel / 255)
+    .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+    .reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  return 1.05 / (luminance + 0.05);
+}
+function darkerColorForWhiteText(hex: string) {
+  const channels = hex.match(/[a-f\d]{2}/gi)?.map((value) => parseInt(value, 16)) || [39, 99, 217];
+  for (let brightness = 0.96; brightness >= 0.12; brightness -= 0.04) {
+    const candidate = `#${channels.map((channel) => Math.round(channel * brightness).toString(16).padStart(2, "0")).join("")}`;
+    if (contrastAgainstWhite(candidate) >= 4.5) return candidate;
+  }
+  return "#555555";
+}
 async function errorFrom(response: Response) {
   const body = (await response.json()) as { error?: string };
   return body.error || "Something went wrong.";
@@ -126,6 +142,7 @@ export function Dashboard({
     [query, setQuery] = useState(""),
     [inactive, setInactive] = useState(false),
     [selected, setSelected] = useState<P | null>(null),
+    [newProjectOpen, setNewProjectOpen] = useState(false),
     [note, setNote] = useState<{ p: P; s?: S } | null>(null),
     [manage, setManage] = useState(false),
     [busy, setBusy] = useState(false),
@@ -214,12 +231,8 @@ export function Dashboard({
         ),
     [projects, query, inactive, sort, hiddenProjects],
   );
-  async function newProject() {
-    setBusy(true);
-    const r = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ownerId: boardOwnerId }) }),
-      b = (await r.json()) as { ok?: boolean; error?: string };
-    b.ok ? location.reload() : alert(b.error);
-    setBusy(false);
+  function newProject() {
+    setNewProjectOpen(true);
   }
   async function reorder(
     target: { id: string; after: boolean } | null,
@@ -694,13 +707,8 @@ export function Dashboard({
           <p>Create your first project to begin.</p>
         </div>
       )}
-      {selected && (
-        <ProjectEdit
-          project={selected}
-          groups={groups}
-          close={() => setSelected(null)}
-        />
-      )}{" "}
+      {selected && <ProjectEdit project={selected} groups={groups} boardOwnerId={boardOwnerId} close={() => setSelected(null)} />}{" "}
+      {newProjectOpen && <ProjectEdit project={null} groups={groups} boardOwnerId={boardOwnerId} close={() => setNewProjectOpen(false)} />}{" "}
       {note && <NoteEdit target={note} close={() => setNote(null)} />}{" "}
       {notePreview && (
         <div className="note-hover-preview" style={{ left: notePreview.left, top: notePreview.top }}>
@@ -1009,22 +1017,41 @@ function PickThree({ view, projects, ownerId, showPickedProjects, close }: { vie
 function ProjectEdit({
   project,
   groups,
+  boardOwnerId,
   close,
 }: {
-  project: P;
+  project: P | null;
   groups: G[];
+  boardOwnerId: string;
   close: () => void;
 }) {
-  const [title, setTitle] = useState(project.title),
-    [completion, setCompletion] = useState(project.completion),
-    [gross, setGross] = useState(project.projected_gross),
-    [net, setNet] = useState(project.projected_net),
-    [actualPaid, setActualPaid] = useState(project.actual_paid || 0),
-    [paidInFull, setPaidInFull] = useState(project.paid_in_full || false),
-    [targetDate, setTargetDate] = useState(project.target_date || ""),
-    [stages, setStages] = useState(project.project_stages),
+  const isNew = project === null;
+  const projectData: P = project || {
+    id: "",
+    title: "",
+    client_name: null,
+    completion: 0,
+    status: "active",
+    mode: "simple",
+    projected_net: 0,
+    projected_gross: 0,
+    actual_paid: 0,
+    paid_in_full: false,
+    project_stages: [],
+    target_date: null,
+    project_notes: [],
+    project_group_memberships: [],
+  };
+  const [title, setTitle] = useState(projectData.title),
+    [completion, setCompletion] = useState(projectData.completion),
+    [gross, setGross] = useState(projectData.projected_gross),
+    [net, setNet] = useState(projectData.projected_net),
+    [actualPaid, setActualPaid] = useState(projectData.actual_paid || 0),
+    [paidInFull, setPaidInFull] = useState(projectData.paid_in_full || false),
+    [targetDate, setTargetDate] = useState(projectData.target_date || ""),
+    [stages, setStages] = useState(projectData.project_stages),
     [chosen, setChosen] = useState(
-      project.project_group_memberships.map((x) => x.group_id),
+      projectData.project_group_memberships.map((x) => x.group_id),
     ),
     [saving, setSaving] = useState(false),
     total = stages.reduce((x, s) => x + s.allocation, 0);
@@ -1045,31 +1072,47 @@ function ProjectEdit({
       100,
   );
   const completionMismatch =
-    project.mode === "staged" && completion !== calculatedCompletion;
+    projectData.mode === "staged" && completion !== calculatedCompletion;
   async function save() {
-    if (project.mode === "staged" && total !== 100)
+    if (!title.trim()) return alert("Please enter a project title before saving.");
+    if (projectData.mode === "staged" && total !== 100)
       return alert("Stage targets must total 100%.");
     let status: "active" | "completed" | undefined;
-    if (completion === 100 && project.status !== "completed") {
-      if (confirm(`Mark “${title || project.title}” as complete? It will be hidden from the normal board and shown only when Include completed is turned on.`)) status = "completed";
-    } else if (completion < 100 && project.status === "completed") {
+    if (completion === 100 && projectData.status !== "completed") {
+      if (confirm(`Mark “${title || projectData.title}” as complete? It will be hidden from the normal board and shown only when Include completed is turned on.`)) status = "completed";
+    } else if (completion < 100 && projectData.status === "completed") {
       status = "active";
     }
     setSaving(true);
-    const r = await fetch(`/api/projects/${project.id}`, {
+    let projectId = projectData.id;
+    if (isNew) {
+      const create = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerId: boardOwnerId }),
+      });
+      const created = (await create.json()) as { ok?: boolean; projectId?: string; error?: string };
+      if (!create.ok || !created.projectId) {
+        alert(created.error || "Project could not be created.");
+        setSaving(false);
+        return;
+      }
+      projectId = created.projectId;
+    }
+    const r = await fetch(`/api/projects/${projectId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: title.trim(),
           completion,
           gross,
           net,
           actualPaid,
           paidInFull,
           status,
-          targetDate: project.mode === "simple" ? targetDate || null : null,
+          targetDate: projectData.mode === "simple" ? targetDate || null : null,
           stages:
-            project.mode === "staged"
+            projectData.mode === "staged"
               ? stages.map((s) => ({
                   id: s.id,
                   name: s.name,
@@ -1080,7 +1123,7 @@ function ProjectEdit({
               : null,
         }),
       }),
-      g = await fetch(`/api/projects/${project.id}/groups`, {
+      g = await fetch(`/api/projects/${projectId}/groups`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ groupIds: chosen }),
@@ -1091,8 +1134,20 @@ function ProjectEdit({
     setSaving(false);
   }
   async function enable() {
-    const r = await fetch(`/api/projects/${project.id}`, { method: "POST" });
+    const r = await fetch(`/api/projects/${projectData.id}`, { method: "POST" });
     r.ok ? location.reload() : alert(await errorFrom(r));
+  }
+  async function removeProject() {
+    if (isNew) return;
+    const confirmation = prompt(`Type the project name exactly to permanently delete it:\n\n${projectData.title}`);
+    if (confirmation !== projectData.title) {
+      if (confirmation !== null) alert("The project name did not match. Nothing was deleted.");
+      return;
+    }
+    setSaving(true);
+    const response = await fetch(`/api/projects/${projectData.id}`, { method: "DELETE" });
+    response.ok ? location.reload() : alert(await errorFrom(response));
+    setSaving(false);
   }
   return (
     <div className="modal-backdrop" onMouseDown={close}>
@@ -1101,11 +1156,11 @@ function ProjectEdit({
           ×
         </button>
         <p className="eyebrow">
-          Project editor · {project.mode === "staged" ? "Staged" : "Simple"}
+          Project editor · {isNew ? "New project" : projectData.mode === "staged" ? "Staged" : "Simple"}
         </p>
         <label>
           Project title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
         <div className="project-details-grid">
           <div className="project-financials">
@@ -1154,7 +1209,7 @@ function ProjectEdit({
               />
               Paid in full
             </label>
-            {project.mode === "simple" && (
+            {projectData.mode === "simple" && (
               <label>
                 Target date
                 <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
@@ -1193,7 +1248,7 @@ function ProjectEdit({
             </div>
           </div>
         </div>
-        {project.mode === "staged" ? (
+        {projectData.mode === "staged" ? (
           <>
             <h3>
               Stages{" "}
@@ -1284,14 +1339,17 @@ function ProjectEdit({
               </div>
             )}
           </>
+        ) : isNew ? (
+          <p className="muted">Save this project first to add a stage plan.</p>
         ) : (
           <button className="ghost" onClick={enable}>
             Add stage plan
           </button>
         )}
         <button className="primary" disabled={saving} onClick={save}>
-          {saving ? "Saving…" : "Save project"}
+          {saving ? "Saving…" : isNew ? "Create project" : "Save project"}
         </button>
+        {!isNew && <button className="ghost danger delete-project" disabled={saving} onClick={() => void removeProject()}>Delete project</button>}
       </section>
     </div>
   );
@@ -1301,7 +1359,15 @@ function GroupEdit({ groups, ownerId, close }: { groups: G[]; ownerId: string; c
     [color, setColor] = useState("#2763d9"),
     [editing, setEditing] = useState<G | null>(null),
     [saving, setSaving] = useState(false);
-  async function add() {
+  function chooseColor(nextColor: string, apply: (color: string) => void) {
+    if (contrastAgainstWhite(nextColor) < 4.5) {
+      const suggestion = darkerColorForWhiteText(nextColor);
+      const useSuggestion = confirm(`${nextColor.toUpperCase()} is too bright for a white group label.\n\nUse ${suggestion.toUpperCase()} instead for better contrast?`);
+      apply(useSuggestion ? suggestion : nextColor);
+      return;
+    }
+    apply(nextColor);
+  }  async function add() {
     const r = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1354,7 +1420,7 @@ function GroupEdit({ groups, ownerId, close }: { groups: G[]; ownerId: string; c
             <label>
               Group color
               <div className="color-control">
-                <input className="color-input" type="color" value={editing.color} onChange={(e) => { setEditing({ ...editing, color: e.target.value }); e.currentTarget.blur(); }} />
+                <input className="color-input" type="color" value={editing.color} onChange={(e) => { chooseColor(e.target.value, (nextColor) => setEditing((current) => current ? { ...current, color: nextColor } : current)); e.currentTarget.blur(); }} />
                 <span className="color-swatch" style={{ background: editing.color }}>{editing.color}</span>
               </div>
             </label>
@@ -1369,7 +1435,7 @@ function GroupEdit({ groups, ownerId, close }: { groups: G[]; ownerId: string; c
         <label>
           Group color
           <div className="color-control">
-            <input className="color-input" type="color" value={color} onChange={(e) => { setColor(e.target.value); e.currentTarget.blur(); }} />
+            <input className="color-input" type="color" value={color} onChange={(e) => { chooseColor(e.target.value, setColor); e.currentTarget.blur(); }} />
             <span className="color-swatch" style={{ background: color }}>{color}</span>
           </div>
         </label>
