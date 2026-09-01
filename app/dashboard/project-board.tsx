@@ -454,7 +454,10 @@ export function Dashboard({
       </header>
       <section className="board">
         {visible.map((p) => {
-          const group = p.project_group_memberships.find(
+          const groupColors = p.project_group_memberships
+              .map((membership) => membership.project_groups?.color)
+              .filter((groupColor): groupColor is string => Boolean(groupColor)),
+            group = p.project_group_memberships.find(
               (x) => x.project_groups,
             )?.project_groups,
             color = group?.color || "#1746a4",
@@ -599,9 +602,11 @@ export function Dashboard({
                       background: shade(color),
                       ["--project-progress" as string]: `${p.completion}%`,
                       ["--project-color" as string]: color,
+                      ["--group-gradient" as string]: `linear-gradient(90deg, ${groupColors.join(", ") || color})`,
                     } as CSSProperties
                   }
                 >
+{groupColors.length > 1 && <div className="group-hover-gradient" aria-hidden="true" />}
                   <div className="project-summary">
                     <h2>
                       {p.title}

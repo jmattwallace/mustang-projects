@@ -847,3 +847,25 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
   }
   .mobile-refresh-title { touch-action:manipulation; user-select:none; cursor:pointer; }
 }
+
+/* Extra group colors appear as a brief palette only when the project is inspected. */
+.group-hover-gradient {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 0;
+  opacity: 0;
+  background: var(--group-gradient);
+  pointer-events: none;
+  transition: height 160ms ease, opacity 160ms ease;
+}
+.project:hover .group-hover-gradient,
+.project:focus-within .group-hover-gradient {
+  height: 7px;
+  opacity: 0.95;
+}
+@media (hover: none) {
+  .group-hover-gradient { display: none; }
+}
