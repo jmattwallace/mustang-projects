@@ -863,9 +863,58 @@ header { display:block; } header .title-row { display:flex; align-items:center; 
 }
 .project:hover .group-hover-gradient,
 .project:focus-within .group-hover-gradient {
-  height: 7px;
+  height: 14px;
   opacity: 0.95;
 }
 @media (hover: none) {
   .group-hover-gradient { display: none; }
+}
+.group-list .group-pill {
+  background: var(--group-color) !important;
+  color: #fff !important;
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px #0008, 0 1px 2px #0008;
+  text-shadow: 0 1px 1px #000;
+}
+.primary-group-help {
+  margin: -3px 0 11px;
+  color: #b8c3d3;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.modal .project-groups-column .group-picker .group-choice {
+  display: grid;
+  grid-template-columns: 16px 28px max-content auto;
+  align-items: center;
+  justify-content: start;
+  gap: 8px;
+  width: 100%;
+}
+.primary-group-button {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #738097;
+  border-radius: 6px;
+  background: #151a23;
+  color: #e4e9f2;
+  font-size: 1rem;
+  line-height: 1;
+}
+.primary-group-button.is-primary {
+  border-color: #e4be4e;
+  background: #403417;
+  color: #ffe489;
+}
+.primary-group-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.group-choice small {
+  color: #ffe489;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

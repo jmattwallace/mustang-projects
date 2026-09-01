@@ -622,8 +622,9 @@ export function Dashboard({
                         (x, i) =>
                           x.project_groups && (
                             <span
+                              className="group-pill"
                               key={i}
-                              style={{ color: x.project_groups.color }}
+                              style={{ ["--group-color" as string]: x.project_groups.color }}
                             >
                               {x.project_groups.name}
                             </span>
@@ -1027,6 +1028,17 @@ function ProjectEdit({
     ),
     [saving, setSaving] = useState(false),
     total = stages.reduce((x, s) => x + s.allocation, 0);
+  const primaryGroupId = chosen[0] || null;
+  function updateChosenGroup(groupId: string, checked: boolean) {
+    setChosen((current) =>
+      checked
+        ? current.includes(groupId) ? current : [...current, groupId]
+        : current.filter((id) => id !== groupId),
+    );
+  }
+  function makePrimaryGroup(groupId: string) {
+    setChosen((current) => [groupId, ...current.filter((id) => id !== groupId)]);
+  }
   const derivedTargetDate = stages.map((stage) => stage.target_date).filter((date): date is string => Boolean(date)).sort().at(-1) || "";
   const calculatedCompletion = Math.round(
     stages.reduce((sum, stage) => sum + stage.allocation * stage.progress, 0) /
@@ -1151,23 +1163,33 @@ function ProjectEdit({
           </div>
           <div className="project-groups-column">
             <h3>Groups</h3>
+            <p className="primary-group-help">The ★ group is primary and supplies the project card’s main color.</p>
             <div className="group-picker">
-              {groups.map((g) => (
-                <label key={g.id}>
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(g.id)}
-                    onChange={(e) =>
-                      setChosen(
-                        e.target.checked
-                          ? [...chosen, g.id]
-                          : chosen.filter((x) => x !== g.id),
-                      )
-                    }
-                  />
-                  <span style={{ background: g.color }}>{g.name}</span>
-                </label>
-              ))}
+              {groups.map((g) => {
+                const selected = chosen.includes(g.id);
+                const isPrimary = primaryGroupId === g.id;
+                return (
+                  <div className="group-choice" key={g.id}>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={(e) => updateChosenGroup(g.id, e.target.checked)}
+                    />
+                    <button
+                      type="button"
+                      className={`primary-group-button ${isPrimary ? "is-primary" : ""}`}
+                      disabled={!selected}
+                      onClick={() => makePrimaryGroup(g.id)}
+                      aria-pressed={isPrimary}
+                      title={isPrimary ? "Primary group" : "Make this the primary group"}
+                    >
+                      {isPrimary ? "★" : "☆"}
+                    </button>
+                    <span style={{ background: g.color }}>{g.name}</span>
+                    {isPrimary && <small>Primary</small>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
