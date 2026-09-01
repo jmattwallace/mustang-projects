@@ -276,7 +276,12 @@ export function Dashboard({
   }
   function loadArrangement(a: A) {
     if (a.positions.__view_kind__ === "pick3" || a.name === "Pick 3 projects") {
-      const picks = new Set(Object.keys(a.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", "")));
+      const picks = new Set(
+        Object.keys(a.positions)
+          .filter((key) => key.startsWith("__pick__"))
+          .map((key) => key.replace("__pick__", ""))
+          .filter((id) => projects.some((project) => project.id === id && project.status === "active")),
+      );
       if (picks.size !== 3) { setPickThree(a); return; }
       setHiddenProjects(new Set(projects.filter((project) => !picks.has(project.id)).map((project) => project.id)));
       setQuery(""); setInactive(true); setSort("manual");
@@ -315,7 +320,12 @@ export function Dashboard({
     setHiddenProjects(new Set());
   }
   function showPickedProjects(picks: string[]) {
-    setHiddenProjects(new Set(projects.filter((project) => !picks.includes(project.id)).map((project) => project.id)));
+    const activePicks = new Set(
+      projects
+        .filter((project) => project.status === "active" && picks.includes(project.id))
+        .map((project) => project.id),
+    );
+    setHiddenProjects(new Set(projects.filter((project) => !activePicks.has(project.id)).map((project) => project.id)));
     setQuery("");
     setInactive(true);
     setSort("manual");
@@ -972,7 +982,11 @@ function SavedViewMenu({ view, projects, ownerId, collapsedStages, hiddenProject
   );
 }
 function PickThree({ view, projects, ownerId, showPickedProjects, close }: { view: A; projects: P[]; ownerId: string; showPickedProjects: (picks: string[]) => void; close: () => void }) {
-  const existing = Object.keys(view.positions).filter((key) => key.startsWith("__pick__")).map((key) => key.replace("__pick__", ""));
+  const activeProjects = projects.filter((project) => project.status === "active");
+  const existing = Object.keys(view.positions)
+    .filter((key) => key.startsWith("__pick__"))
+    .map((key) => key.replace("__pick__", ""))
+    .filter((id) => activeProjects.some((project) => project.id === id));
   const [picked, setPicked] = useState<string[]>(existing);
   async function save() {
     if (picked.length !== 3) return alert("Please choose exactly three projects.");
@@ -984,7 +998,7 @@ function PickThree({ view, projects, ownerId, showPickedProjects, close }: { vie
     const response = await fetch("/api/arrangements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: view.id || undefined, ownerId, name: "Pick 3 projects", positions }) });
     response.ok ? showPickedProjects(picked) : alert(await errorFrom(response));
   }
-  return <div className="modal-backdrop" onMouseDown={close}><section className="modal compact" onMouseDown={(event) => event.stopPropagation()}><button className="close" onClick={close}>×</button><p className="eyebrow">Pick 3 projects</p><h2>Show only three projects</h2><p className="muted">Choose exactly three projects for this saved view.</p><div className="pick-three-list">{projects.map((project) => <label key={project.id}><input type="checkbox" checked={picked.includes(project.id)} onChange={(event) => setPicked((current) => event.target.checked ? [...current, project.id] : current.filter((id) => id !== project.id))} disabled={!picked.includes(project.id) && picked.length === 3} /> {project.title}</label>)}</div><button className="primary" onClick={() => void save()}>Save Pick 3 view</button></section></div>;
+  return <div className="modal-backdrop" onMouseDown={close}><section className="modal compact" onMouseDown={(event) => event.stopPropagation()}><button className="close" onClick={close}>×</button><p className="eyebrow">Pick 3 projects</p><h2>Show only three active projects</h2><p className="muted">Choose exactly three active projects for this saved view.</p><div className="pick-three-list">{activeProjects.map((project) => <label key={project.id}><input type="checkbox" checked={picked.includes(project.id)} onChange={(event) => setPicked((current) => event.target.checked ? [...current, project.id] : current.filter((id) => id !== project.id))} disabled={!picked.includes(project.id) && picked.length === 3} /> {project.title}</label>)}</div><button className="primary" onClick={() => void save()}>Save Pick 3 view</button></section></div>;
 }
 function ProjectEdit({
   project,
