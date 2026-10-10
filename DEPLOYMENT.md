@@ -57,10 +57,10 @@ The deployment workflow is in `.github/workflows/deploy-cloudflare.yml`. No Clou
 
 ## Bud integration API
 
-Bud uses a dedicated server-side API and must never receive a Supabase key, a browser session, or any project-management login credentials. Create the following **Cloudflare Worker runtime secrets** in the `mustang-projects` Worker before giving Bud its endpoint:
+Bud uses a dedicated server-side API and must never receive a Supabase key, a browser session, or any project-management login credentials. Create the following **Cloudflare Worker runtime values** in the `mustang-projects` Worker before giving Bud its endpoint. These are managed in Cloudflare, not in Git, and `keep_vars` ensures ordinary deployments preserve them:
 
 - `SUPABASE_SERVICE_ROLE_KEY` — the Supabase service-role key; keep this in Cloudflare only.
-- `BUD_OWNER_ID` — the UUID of the one Mustang Projects profile Bud may access.
+- `BUD_OWNER_ID` — a regular Cloudflare runtime **Variable** holding the UUID of the one Mustang Projects profile Bud may access.
 - `BUD_READ_TOKEN` — a long random token for read-only access.
 - `BUD_WRITE_TOKEN` — a separate long random token for limited write access.
 
