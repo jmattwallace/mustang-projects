@@ -54,3 +54,22 @@ The deployment workflow is in `.github/workflows/deploy-cloudflare.yml`. No Clou
 - Never commit `.env.local`, Google client secrets, or a Supabase service-role key.
 - The Supabase publishable key is expected in the browser; Row Level Security protects the data.
 - Invitations currently authorize access to the application; they do not send a separate email until an email delivery provider is configured.
+
+## Bud integration API
+
+Bud uses a dedicated server-side API and must never receive a Supabase key, a browser session, or any project-management login credentials. Create the following **Cloudflare Worker runtime secrets** in the `mustang-projects` Worker before giving Bud its endpoint:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — the Supabase service-role key; keep this in Cloudflare only.
+- `BUD_OWNER_ID` — the UUID of the one Mustang Projects profile Bud may access.
+- `BUD_READ_TOKEN` — a long random token for read-only access.
+- `BUD_WRITE_TOKEN` — a separate long random token for limited write access.
+
+Bud receives only the appropriate token through its vault. Do not put either token in GitHub, source files, chat, logs, or a browser URL. Rotate either token by changing its Cloudflare secret; removing it revokes access immediately.
+
+Available endpoints:
+
+- `GET /api/bud/projects?limit=50&cursor=0` — read the bound owner's projects. A read or write token is accepted.
+- `POST /api/bud/projects` — create one active Simple project. Body: `{ "title": "…", "completion": 0 }`. Requires the write token.
+- `PATCH /api/bud/projects/{projectId}/completion` — update only completion. Body: `{ "completion": 65 }`. Requires the write token.
+
+No Bud endpoint supports deletion, group changes, user management, financial changes, status changes, project ownership changes, or general project edits. Apply a Cloudflare rate-limit rule to `/api/bud/*` before enabling the write token.
