@@ -8,6 +8,9 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "vars": {
+    "BUD_OWNER_ID": "cf862b91-4185-4b3e-a863-5cc59470b7d7"
+  },
   "observability": {
     "enabled": true
   }
