@@ -23,13 +23,7 @@ jobs:
           # NEXT_PUBLIC values are compiled into the browser app during this step.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      - name: Create or update the Cloudflare Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: deploy --config wrangler.jsonc
-      # A Worker must exist before Wrangler can store its runtime values.
-      - name: Add runtime configuration
+      - name: Deploy the Worker with its runtime configuration
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -37,6 +31,12 @@ jobs:
           secrets: |
             NEXT_PUBLIC_SUPABASE_URL
             NEXT_PUBLIC_SUPABASE_ANON_KEY
+            SUPABASE_SERVICE_ROLE_KEY
+            BUD_READ_TOKEN
+            BUD_WRITE_TOKEN
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BUD_READ_TOKEN: ${{ secrets.BUD_READ_TOKEN }}
+          BUD_WRITE_TOKEN: ${{ secrets.BUD_WRITE_TOKEN }}

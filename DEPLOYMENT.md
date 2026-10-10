@@ -16,6 +16,9 @@ This method does not use Cloudflare's GitHub App or its repository-selection scr
    - `CLOUDFLARE_API_TOKEN` — the token just created
    - `NEXT_PUBLIC_SUPABASE_URL` — the existing Supabase Project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the existing Supabase publishable key
+   - `SUPABASE_SERVICE_ROLE_KEY` — the Supabase server secret; never expose it in the browser
+   - `BUD_READ_TOKEN` — Bud's read-only bearer token
+   - `BUD_WRITE_TOKEN` — Bud's restricted write bearer token
 4. Open the repository's **Actions** tab and run or re-run **Deploy Mustang Projects**. It creates the Worker called `mustang-projects` and gives it a `workers.dev` URL.
 
 The deployment workflow is in `.github/workflows/deploy-cloudflare.yml`. No Cloudflare token or Supabase value is stored in the repository itself.
