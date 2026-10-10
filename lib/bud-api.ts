@@ -41,6 +41,19 @@ export function budOwnerId() {
   return env.BUD_OWNER_ID!;
 }
 
+// These values are intentionally non-secret and are returned only after a Bud
+// token has been authorized. They make it possible to diagnose a mis-bound
+// Worker without exposing any credential material.
+export function budConnectionDetails() {
+  let databaseHost: string | null = null;
+  try {
+    databaseHost = new URL(env.NEXT_PUBLIC_SUPABASE_URL || "").host || null;
+  } catch {
+    databaseHost = null;
+  }
+  return { ownerId: budOwnerId(), databaseHost };
+}
+
 export function budProject(project: { id: string; title: string; completion: number; status: string; target_date: string | null; client_name: string | null }) {
   return { id: project.id, title: project.title, completion: project.completion, status: project.status, targetDate: project.target_date, clientName: project.client_name };
 }

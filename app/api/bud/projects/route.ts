@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeBud, budDatabase, budOwnerId, budProject } from "@/lib/bud-api";
+import { authorizeBud, budConnectionDetails, budDatabase, budOwnerId, budProject } from "@/lib/bud-api";
 
 const projectColumns = "id,title,completion,status,target_date,client_name";
 
@@ -13,7 +13,11 @@ export async function GET(request: NextRequest) {
   const { data, error } = await budDatabase().from("projects").select(projectColumns).eq("owner_id", budOwnerId()).order("position").range(cursor, cursor + limit - 1);
   if (error) return NextResponse.json({ error: "Could not read projects." }, { status: 500 });
   const projects = (data || []).map(budProject);
-  return NextResponse.json({ projects, nextCursor: projects.length === limit ? cursor + limit : null });
+  return NextResponse.json({
+    projects,
+    nextCursor: projects.length === limit ? cursor + limit : null,
+    connection: budConnectionDetails(),
+  });
 }
 
 export async function POST(request: NextRequest) {
